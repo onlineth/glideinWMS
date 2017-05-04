@@ -34,7 +34,7 @@ process_branch() {
     PYLINT_RCFILE=/dev/null
     #PYLINT_RCFILE=$WORKSPACE/pylint.cfg
     #PYLINT_OPTIONS="--errors-only --msg-template=\"{path}:{line}: [{msg_id}({symbol}), {obj}] {msg}\" --rcfile=$PYLINT_RCFILE"
-    PYLINT_OPTIONS="--errors-only --rcfile=$PYLINT_RCFILE"
+    #PYLINT_OPTIONS="--errors-only --rcfile=$PYLINT_RCFILE"
 
     # pep8 related variables
     # default: E121,E123,E126,E226,E24,E704
@@ -72,7 +72,8 @@ process_branch() {
 
         for file in *.py
         do
-          files_checked="$files_checked $file"
+          fp_file=${GLIDEINWMS_SRC}/$dir/$file  
+          files_checked="$files_checked $fp_file"
           pylint $PYLINT_OPTIONS $file >> $pylint_log || log_nonzero_rc "pylint" $?
           pep8 $PEP8_OPTIONS $file >> $pep8_log || log_nonzero_rc "pep8" $?
         done
