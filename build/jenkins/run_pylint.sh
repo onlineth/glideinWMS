@@ -87,6 +87,13 @@ process_branch() {
     echo "----------------"
     cat $results
     echo "----------------"
+
+    if [ "$git_branch" = "branch_v3_2" ]; then
+        cd $WORKSPACE
+        for file in $files_checked ; do 
+            ln -s $file .
+        done
+    fi
 }
 
 
