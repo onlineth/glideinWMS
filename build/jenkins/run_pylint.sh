@@ -32,9 +32,9 @@ process_branch() {
 
     # pylint related variables
     PYLINT_RCFILE=/dev/null
-    PYLINT_OPTIONS="-f parseable"/
     #PYLINT_RCFILE=$WORKSPACE/pylint.cfg
     #PYLINT_OPTIONS="--errors-only --msg-template=\"{path}:{line}: [{msg_id}({symbol}), {obj}] {msg}\" --rcfile=$PYLINT_RCFILE"
+    PYLINT_OPTIONS="--msg-template=\"{path}:{line}: [{msg_id}({symbol}), {obj}] {msg}\" "
     #PYLINT_OPTIONS="--errors-only --rcfile=$PYLINT_RCFILE"
 
     # pep8 related variables
@@ -60,7 +60,7 @@ process_branch() {
     #cat $PYLINT_RCFILE
 
     # get list of python scripts without .py extension
-    scripts=`find glideinwms -path glideinwms/.git -prune -o -exec file {} \; -a -type f | grep -i python | grep -vi '\.py' | cut -d: -f1 | grep -v "\.html$"`
+    scripts=`find $GLIDEINWMS_SRC -path glideinwms/.git -prune -o -exec file {} \; -a -type f | grep -i python | grep -vi '\.py' | cut -d: -f1 | grep -v "\.html$"`
     pylint $PYLINT_OPTIONS -e F0401 ${scripts}  >> $pylint_log || log_nonzero_rc "pylint" $?
     pep8 $PEP8_OPTIONS ${scripts} >> $pep8_log || log_nonzero_rc "pep8" $?
 
@@ -73,7 +73,7 @@ process_branch() {
 
         for file in *.py
         do
-          fp_file=glideinwms/$dir/$file  
+          fp_file=${GLIDEINWMS_SRC}/$dir/$file  
           files_checked="$files_checked $fp_file"
           pylint $PYLINT_OPTIONS $file >> $pylint_log || log_nonzero_rc "pylint" $?
           pep8 $PEP8_OPTIONS $file >> $pep8_log || log_nonzero_rc "pep8" $?
@@ -93,7 +93,7 @@ process_branch() {
     mkdir -p $WORKSPACE/$BUILD_NUMBER/source
     for file in $files_checked ; do 
         fname=$(basename $file)
-        ln -s $WORKSPACE/glideinwms/$file $WORKSPACE/$BUILD_NUMBER/source/$fname
+        ln -s $file $WORKSPACE/$BUILD_NUMBER/source/$fname
     done
 }
 
