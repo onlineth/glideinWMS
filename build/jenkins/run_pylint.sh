@@ -32,6 +32,7 @@ process_branch() {
 
     # pylint related variables
     PYLINT_RCFILE=/dev/null
+    PYLINT_OPTIONS="-f parseable"/
     #PYLINT_RCFILE=$WORKSPACE/pylint.cfg
     #PYLINT_OPTIONS="--errors-only --msg-template=\"{path}:{line}: [{msg_id}({symbol}), {obj}] {msg}\" --rcfile=$PYLINT_RCFILE"
     #PYLINT_OPTIONS="--errors-only --rcfile=$PYLINT_RCFILE"
@@ -72,7 +73,7 @@ process_branch() {
 
         for file in *.py
         do
-          fp_file=${GLIDEINWMS_SRC}/$dir/$file  
+          fp_file=glideinwms/$dir/$file  
           files_checked="$files_checked $fp_file"
           pylint $PYLINT_OPTIONS $file >> $pylint_log || log_nonzero_rc "pylint" $?
           pep8 $PEP8_OPTIONS $file >> $pep8_log || log_nonzero_rc "pep8" $?
@@ -92,7 +93,7 @@ process_branch() {
     mkdir -p $WORKSPACE/$BUILD_NUMBER/source
     for file in $files_checked ; do 
         fname=$(basename $file)
-        ln -s $file $WORKSPACE/$BUILD_NUMBER/source/$fname
+        ln -s $WORKSPACE/glideinwms/$file $WORKSPACE/$BUILD_NUMBER/source/$fname
     done
 }
 
