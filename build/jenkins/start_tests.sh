@@ -73,6 +73,8 @@ process_branch () {
     echo ""
 
     cd "$GLIDEINWMS_SRC"
+    git clean -df
+    git reset --hard
     git checkout "$1"
 
     if [ $? -ne 0 ]; then
