@@ -125,7 +125,7 @@ process_branch () {
     echo "Running Pylint Test"
     run_pylint "$Log_Dir" "$branch_prefix"
 
-    if [ "$pylint_results" -eq "0" ]; then
+    if [ "$PYLINT_ERROR_FILES_COUNT" -eq "0" ]; then
         # Success
         mail_file="$mail_file
             <td style=\"$HTML_TD_PASSED\">$FILES_CHECKED_COUNT</td>
