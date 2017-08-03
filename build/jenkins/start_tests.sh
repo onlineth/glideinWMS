@@ -146,7 +146,7 @@ process_branch () {
     echo "Running Unittests"
     run_unittests "$Log_Dir" "$branch_prefix"
 
-    if [ "$unittest_errors" -eq "0" ]; then
+    if [ "$unittest_error_count" -eq "0" ]; then
         # Success
         mail_file="$mail_file
             <td style=\"$HTML_TD_PASSED\">$unittest_test_count</td>
@@ -157,7 +157,7 @@ process_branch () {
         # Failed
         mail_file="$mail_file
             <td style=\"$HTML_TD_FAILED\">$unittest_test_count</td>
-            <td style=\"$HTML_TD_FAILED\">$unittest_errors</td>
+            <td style=\"$HTML_TD_FAILED\">$unittest_error_count</td>
             <td style=\"$HTML_TD_FAILED\">$unittest_failure_count</td>
             </tr>"
     fi
