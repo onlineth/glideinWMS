@@ -12,12 +12,9 @@ run_unittests() {
 	rm -f "$unittests_reports_dir/"*.xml
 	rm -f "$log_dir/${branch_name}"*.xml
 
-	unittest_errors=0
-
 	for file in $unittestlist; do
 	    echo "TESTING ==========> $file"
 	    $GLIDEINWMS_SRC/unittests/$file
-	    unittest_errors=$(($unittest_errors+$?))
 	done
 
 	# Rename, copy, then delete each unitest report
@@ -29,8 +26,9 @@ run_unittests() {
 
 	unittest_test_count=$(cat $log_dir/${branch_name}_*.xml | grep "<testsuite" | tr -s " " | cut -d " " -f5 | cut -d "=" -f2 | sed 's/\"//g' | paste -s -d+ | bc)
 	unittest_failure_count=$(cat $log_dir/${branch_name}_*.xml | grep "<testsuite" | tr -s " " | cut -d " " -f3 | cut -d "=" -f2 | sed 's/\"//g' | paste -s -d+ | bc)
+	unittest_error_count=$(cat $log_dir/${branch_name}_*.xml | grep "<testsuite" | tr -s " " | cut -d " " -f2 | cut -d "=" -f2 | sed 's/\"//g' | paste -s -d+ | bc)
 
-	export unittest_errors
+	export unittest_error_count
 	export unittest_test_count
 	export unittest_failure_count
 	return
@@ -48,5 +46,5 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 
 	run_unittests $WORKSPACE "Unittests"
 
-	echo "Out of $unittest_test_count tests, $unittest_errors unittests had errors and $unittest_failure_count failures."
+	echo "Out of $unittest_test_count tests, $unittest_error_count unittests had errors and $unittest_failure_count failures."
 fi
