@@ -14,15 +14,12 @@ from __future__ import print_function
 #
 
 import time
-import string
 import os.path
 import os
-import copy
 import tempfile
 import shutil
 
 from glideinwms.lib import logSupport
-from glideinwms.lib import timeConversion
 from glideinwms.lib import xmlParse, xmlFormat
 from glideinwms.lib import rrdSupport
 

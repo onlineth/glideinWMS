@@ -15,20 +15,16 @@ from __future__ import print_function
 
 import json
 import copy
-import time
-import string
 import pickle
 import os.path
 import tempfile
 import shutil
 import time
 
-from glideinwms.lib import timeConversion
 from glideinwms.lib import xmlParse, xmlFormat
 from glideinwms.lib import logSupport
 from glideinwms.lib import rrdSupport
 from glideinwms.factory import glideFactoryMonitoring
-from glideinwms.factory import glideFactoryLib
 
 ############################################################
 #

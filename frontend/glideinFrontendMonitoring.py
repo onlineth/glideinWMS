@@ -14,9 +14,8 @@ from __future__ import print_function
 #
 
 import os, os.path
-import re, time, copy, string, math, random, fcntl
-import traceback
-from glideinwms.lib import xmlFormat, timeConversion
+import time, copy, string, fcntl
+from glideinwms.lib import xmlFormat
 from glideinwms.lib import rrdSupport
 from glideinwms.lib import logSupport
 ############################################################

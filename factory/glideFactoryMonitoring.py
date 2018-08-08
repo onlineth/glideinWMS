@@ -24,7 +24,6 @@ from glideinwms.lib import timeConversion
 from glideinwms.lib import rrdSupport
 from glideinwms.lib import logSupport
 from glideinwms.lib import cleanupSupport
-from glideinwms.factory import glideFactoryLib
 from glideinwms.lib import util
 
 # list of rrd files that each site has
