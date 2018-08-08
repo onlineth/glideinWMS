@@ -1641,4 +1641,3 @@ def get_completed_stats_xml_desc():
 
 # global configuration of the module
 monitoringConfig = MonitoringConfig()
-

@@ -906,6 +906,3 @@ def aggregateRRDStats(log=logSupport.log):
             log.debug("write_file %s, IOError"%rrd_site(rrd))
 
     return
-
-
-

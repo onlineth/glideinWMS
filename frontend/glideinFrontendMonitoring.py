@@ -687,4 +687,3 @@ def write_frontend_descript_xml(frontendDescript, monitor_dir):
     
     except IOError:
         logSupport.log.exception("Error writing out the frontend descript.xml: ")
-        

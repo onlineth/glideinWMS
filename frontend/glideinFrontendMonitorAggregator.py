@@ -409,5 +409,3 @@ def aggregateStatus():
         write_one_rrd("%s/Status_Attributes"%fe_dir, updated, global_fact_totals['states'][fact], 1)
 
     return status
-
-
