@@ -22,7 +22,7 @@ from glideinwms.lib import logSupport
 ############################################################
 
 class Monitoring_Output:
-    def write_groupStats(self):
+    def write_groupStats(self, total, factories_data, states_data, updated):
         pass
 
     def write_factoryStats(self):
@@ -293,10 +293,10 @@ class groupStats:
 
         if (self.files_updated is not None) and ((self.updated-self.files_updated)<5):
             # files updated recently, no need to redo it
-            return 
-        
+            return
 
-        # write snaphot file
+
+            # write snaphot file
         xml_str=('<?xml version="1.0" encoding="ISO-8859-1"?>\n\n'+
                  '<VOFrontendGroupStats>\n'+
                  self.get_xml_updated(indent_tab=xmlFormat.DEFAULT_TAB, leading_tab=xmlFormat.DEFAULT_TAB)+"\n"+
@@ -308,18 +308,14 @@ class groupStats:
         monitoringConfig.write_file("frontend_status.xml", xml_str)
 
         # update RRDs
-        total_el = self.get_total()
-        self.write_one_rrd("total", total_el)
+        total = self.get_total()
+        factories_data = self.get_factories_data()
+        states_data = self.get_states_data()
 
-        data = self.get_factories_data()
-        for fact in data.keys():
-            self.write_one_rrd("factory_%s"%sanitize(fact), data[fact], 1)
+        for out in out_list:
+            out.write_groupStats(total, factories_data, states_data, self.updated)
 
-        data = self.get_states_data()
-        for fact in data.keys():
-            self.write_one_rrd("state_%s"%sanitize(fact), data[fact], 1)
-
-        self.files_updated=self.updated        
+        self.files_updated=self.updated
         return
 
     ################################################
@@ -333,60 +329,6 @@ class groupStats:
             factories[factory] = {}
         return factories[factory]
 
-    ###############################
-    # PRIVATE - Used by write_file
-    # Write one RRD
-    def write_one_rrd(self,name,data,fact=0):
-        global monitoringConfig
-
-        val_dict={}
-        if fact==0:
-            type_strings = {
-                'Jobs':'Jobs',
-                'Glideins':'Glidein',
-                'MatchedJobs':'MatchJob',
-                'MatchedGlideins':'MatchGlidein',
-                'MatchedCores':'MatchCore',
-                'Requested':'Req'
-            }
-        else:
-            type_strings = {
-                'MatchedJobs':'MatchJob',
-                'MatchedGlideins':'MatchGlidein',
-                'MatchedCores':'MatchCore',
-                'Requested':'Req'
-            }
-
-        #init, so that all get created properly
-        for tp in self.attributes.keys():
-            if tp in type_strings.keys():
-                tp_str=type_strings[tp]
-                attributes_tp=self.attributes[tp]
-                for a in attributes_tp:
-                    val_dict["%s%s"%(tp_str, a)]=None
-
-
-        for tp in data:
-            # type - Jobs,Slots
-            if not (tp in self.attributes.keys()):
-                continue
-            if not (tp in type_strings.keys()):
-                continue
-
-            tp_str=type_strings[tp]
-
-            attributes_tp=self.attributes[tp]
-
-            fe_el_tp=data[tp]
-            for a in fe_el_tp.keys():
-                if a in attributes_tp:
-                    a_el=fe_el_tp[a]
-                    if not isinstance(a_el, dict): # ignore subdictionaries
-                        val_dict["%s%s"%(tp_str, a)]=a_el
-
-        monitoringConfig.establish_dir("%s"%name)
-        monitoringConfig.write_rrd_multi("%s/Status_Attributes"%name,
-                                         "GAUGE", self.updated, val_dict)
 
 ########################################################################
     
