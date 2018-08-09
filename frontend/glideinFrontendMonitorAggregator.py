@@ -45,7 +45,7 @@ class MonitorAggregatorConfig:
     def config_frontend(self, monitor_dir, groups):
         self.monitor_dir=monitor_dir
         self.groups=groups
-        glideinFrontendMonitoring.monitoringConfig.monitor_dir=monitor_dir
+        glideinFrontendMonitoring.monitoringConfigObj.monitor_dir=monitor_dir
     
 
 # global configuration of the module
@@ -238,9 +238,10 @@ def write_one_rrd(name, updated, data, fact=0):
                 if not isinstance(a_el, dict):  # ignore subdictionaries
                     val_dict["%s%s" % (tp_str, a)] = a_el
                 
-    glideinFrontendMonitoring.monitoringConfig.establish_dir("%s" % name)
-    glideinFrontendMonitoring.monitoringConfig.write_rrd_multi("%s" % name,
-                                                               "GAUGE", updated, val_dict)
+    glideinFrontendMonitoring.monitoringConfigObj.establish_dir("%s" % name)
+    # Writing Here!
+    # glideinFrontendMonitoring.monitoringConfig.write_rrd_multi("%s" % name,
+    #                                                            "GAUGE", updated, val_dict)
 
 ##############################################################################
 # create an aggregate of status files, write it in an aggregate status file
@@ -389,20 +390,20 @@ def aggregateStatus():
                                    leading_tab=xmlFormat.DEFAULT_TAB)+"\n"+
              "</VOFrontendStats>\n")
 
-    glideinFrontendMonitoring.monitoringConfig.write_file(monitorAggregatorConfig.status_relname, xml_str)
+    glideinFrontendMonitoring.monitoringConfigObj.write_file(monitorAggregatorConfig.status_relname, xml_str)
                 
     # Write rrds
 
-    glideinFrontendMonitoring.monitoringConfig.establish_dir("total")
+    glideinFrontendMonitoring.monitoringConfigObj.establish_dir("total")
     write_one_rrd("total/Status_Attributes", updated, global_total, 0)
 
     for fact in global_fact_totals['factories'].keys():
         fe_dir="total/factory_%s"%glideinFrontendMonitoring.sanitize(fact)
-        glideinFrontendMonitoring.monitoringConfig.establish_dir(fe_dir)
+        glideinFrontendMonitoring.monitoringConfigObj.establish_dir(fe_dir)
         write_one_rrd("%s/Status_Attributes"%fe_dir, updated, global_fact_totals['factories'][fact], 1)
     for fact in global_fact_totals['states'].keys():
         fe_dir="total/state_%s"%glideinFrontendMonitoring.sanitize(fact)
-        glideinFrontendMonitoring.monitoringConfig.establish_dir(fe_dir)
+        glideinFrontendMonitoring.monitoringConfigObj.establish_dir(fe_dir)
         write_one_rrd("%s/Status_Attributes"%fe_dir, updated, global_fact_totals['states'][fact], 1)
 
     return status
