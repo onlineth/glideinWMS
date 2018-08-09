@@ -18,6 +18,17 @@ import time, copy, string, fcntl
 from glideinwms.lib import xmlFormat
 from glideinwms.lib import rrdSupport
 from glideinwms.lib import logSupport
+
+############################################################
+
+class Monitoring_Output:
+    def write_groupStats(self):
+        pass
+
+    def write_factoryStats(self):
+        pass
+
+
 ############################################################
 #
 # Configuration
@@ -277,7 +288,7 @@ class groupStats:
                                       indent_tab=indent_tab, leading_tab=leading_tab)
 
 
-    def write_file(self):
+    def write_data(self):
         global monitoringConfig
 
         if (self.files_updated is not None) and ((self.updated-self.files_updated)<5):
@@ -353,8 +364,8 @@ class groupStats:
                 attributes_tp=self.attributes[tp]
                 for a in attributes_tp:
                     val_dict["%s%s"%(tp_str, a)]=None
-            
-        
+
+
         for tp in data:
             # type - Jobs,Slots
             if not (tp in self.attributes.keys()):
@@ -365,7 +376,7 @@ class groupStats:
             tp_str=type_strings[tp]
 
             attributes_tp=self.attributes[tp]
-                
+
             fe_el_tp=data[tp]
             for a in fe_el_tp.keys():
                 if a in attributes_tp:
@@ -686,3 +697,16 @@ def write_frontend_descript_xml(frontendDescript, monitor_dir):
     
     except IOError:
         logSupport.log.exception("Error writing out the frontend descript.xml: ")
+
+
+##################################################
+
+from glideinwms.lib import monitorRRD
+
+def createOutList():
+    out_list = []
+    out = monitorRRD.Monitoring_Output()
+    out_list.append(out)
+    return out_list
+
+out_list = createOutList()

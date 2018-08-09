@@ -1892,7 +1892,7 @@ def check_parent(parent_pid):
 ############################################################
 def write_stats(stats):
     for k in stats.keys():
-        stats[k].write_file();
+        stats[k].write_data();
 
 ############################################################
 # Will log the factory_stat_arr (tuple composed of 17 numbers)
