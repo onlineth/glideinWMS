@@ -33,10 +33,6 @@ class Monitoring_Output(object, Monitoring_Output):
         for fact in states_data.keys():
             self.write_one_rrd("state_%s" % sanitize(fact), states_data[fact], 1)
 
-
-    def write_groupStats(self, total, factories_data, states_data, updated):
-        pass
-
     ###############################
     # PRIVATE - Used by write_file
     # Write one RRD
