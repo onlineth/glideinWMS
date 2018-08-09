@@ -1,9 +1,8 @@
-from __future__ import print_function
 #
 # Project:
 #   glideinWMS
 #
-# File Version: 
+# File Version:
 #
 # Description:
 #   This module implements the functions needed
@@ -13,71 +12,51 @@ from __future__ import print_function
 #   Igor Sfiligoi (Mar 19th 2009)
 #
 
-import os, os.path
-import time, copy, string, fcntl
-from glideinwms.lib import xmlFormat
-from glideinwms.lib import rrdSupport
+
+from __future__ import print_function
+
+import copy
+import os
+import os.path
+import string
+import time
+
 from glideinwms.lib import logSupport
+from glideinwms.lib import xmlFormat
 
-############################################################
-#
-# Configuration
-#
-############################################################
-
-class MonitoringConfig:
-    def __init__(self):
-        # set default values
-        # user should modify if needed
-        self.rrd_step=300       #default to 5 minutes
-        self.rrd_heartbeat=1800 #default to 30 minutes, should be at least twice the loop time
-        self.rrd_archives=[('AVERAGE', 0.8, 1, 740),      # max precision, keep 2.5 days
-                           ('AVERAGE', 0.92, 12, 740),       # 1 h precision, keep for a month (30 days)
-                           ('AVERAGE', 0.98, 144, 740)        # 12 hour precision, keep for a year
-                           ]
-
-        # The name of the attribute that identifies the glidein
-        self.monitor_dir="monitor/"
-
-        self.rrd_obj=rrdSupport.rrdSupport()
-
-        self.my_name="Unknown"
-
-    def write_file(self, relative_fname, output_str):
-        fname=os.path.join(self.monitor_dir, relative_fname)
-        if not os.path.isdir(os.path.dirname(fname)):
-            os.makedirs(os.path.dirname(fname))
-        #print "Writing "+fname
-        fd=open(fname+".tmp", "w")
-        try:
-            fd.write(output_str+"\n")
-        finally:
-            fd.close()
-
-        tmp2final(fname)
-        return
-    
-    def establish_dir(self, relative_dname):
-        dname=os.path.join(self.monitor_dir, relative_dname)      
-        if not os.path.isdir(dname):
-            os.mkdir(dname)
-        return
-
-    
-
-# global configuration of the module
-monitoringConfigObj=MonitoringConfig()
-
-############################################################
 
 class Monitoring_Output:
-    def __init__(self):
-        self.MonitoringConfig = monitoringConfigObj
+    monitor_dir = "monitor/"
+
+
     def write_groupStats(self, total, factories_data, states_data, updated):
         pass
 
     def write_factoryStats(self):
         pass
+
+    # Static Functions
+    @staticmethod
+    def write_file(relative_fname, output_str):
+        fname = os.path.join(Monitoring_Output.monitor_dir, relative_fname)
+        if not os.path.isdir(os.path.dirname(fname)):
+            os.makedirs(os.path.dirname(fname))
+        # print "Writing "+fname
+        fd = open(fname + ".tmp", "w")
+        try:
+            fd.write(output_str + "\n")
+        finally:
+            fd.close()
+
+        tmp2final(fname)
+        return
+
+    @staticmethod
+    def establish_dir(relative_dname):
+        dname = os.path.join(Monitoring_Output.monitor_dir, relative_dname)
+        if not os.path.isdir(dname):
+            os.mkdir(dname)
+        return
 
 #########################################################################################################################################
 #
@@ -261,8 +240,6 @@ class groupStats:
 
 
     def write_data(self):
-        global monitoringConfig
-
         if (self.files_updated is not None) and ((self.updated-self.files_updated)<5):
             # files updated recently, no need to redo it
             return 
@@ -277,7 +254,7 @@ class groupStats:
                  self.get_xml_total(indent_tab=xmlFormat.DEFAULT_TAB, leading_tab=xmlFormat.DEFAULT_TAB)+"\n"+
                  "</VOFrontendGroupStats>\n")
 
-        monitoringConfigObj.write_file("frontend_status.xml", xml_str)
+        Monitoring_Output.write_file("frontend_status.xml", xml_str)
 
         # update RRDs
         total = self.get_total()
