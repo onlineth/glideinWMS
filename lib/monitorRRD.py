@@ -140,7 +140,7 @@ class Monitoring_Output(Monitoring_Output):
             self.write_rrd_multi("%s/Status_Attributes"%fe_dir,
                                              "GAUGE", self.updated, val_dict)
 
-    def write_aggregation(self, global_fact_totals, updated, global_total):
+    def write_aggregation(self, global_fact_totals, updated, global_total, status):
         Monitoring_Output.establish_dir("total")
         self.write_one_rrd_aggr("total/Status_Attributes", updated, global_total, 0)
 

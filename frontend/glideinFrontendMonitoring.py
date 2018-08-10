@@ -50,7 +50,7 @@ class Monitoring_Output(object):
     def write_factoryStats(self, data, total_el, updated):
         pass
 
-    def write_aggregation(self, global_fact_totals, updated, global_total):
+    def write_aggregation(self, global_fact_totals, updated, global_total, status):
         pass
 
     # Common Methods
@@ -70,9 +70,11 @@ class Monitoring_Output(object):
     @staticmethod
     def createOutList():
         if not (Monitoring_Output.out_list):
-            from glideinwms.lib import monitorRRD
+            from glideinwms.lib import monitorRRD, monitorXML
             monitorRRD_config = {}
             out = monitorRRD.Monitoring_Output({}, {})
+            Monitoring_Output.out_list.append(out)
+            out = monitorXML.Monitoring_Output({}, {})
             Monitoring_Output.out_list.append(out)
 
     @staticmethod
@@ -226,26 +228,8 @@ class groupStats:
     def get_factories_data(self):
         return copy.deepcopy(self.data['factories'])
 
-    def get_xml_factories_data(self,indent_tab=xmlFormat.DEFAULT_TAB,leading_tab=""):
-        data=self.get_factories_data()
-        return xmlFormat.dict2string(data,
-                                     dict_name='factories', el_name='factory',
-                                     subtypes_params={"class":{'subclass_params':{'Requested':{'dicts_params':{'Parameters':{'el_name':'Parameter'}}}}}},
-                                       indent_tab=indent_tab, leading_tab=leading_tab)
-
     def get_states_data(self):
         return copy.deepcopy(self.data['states'])
-
-    def get_xml_states_data(self,indent_tab=xmlFormat.DEFAULT_TAB,leading_tab=""):
-        data=self.get_states_data()
-        return xmlFormat.dict2string(data,
-                                     dict_name='states', el_name='state',
-                                     subtypes_params={"class":{'subclass_params':{'Requested':{'dicts_params':{'Parameters':{'el_name':'Parameter'}}}}}},
-                                       indent_tab=indent_tab, leading_tab=leading_tab)
-
-
-    def get_xml_updated(self,indent_tab=xmlFormat.DEFAULT_TAB,leading_tab=""):
-        return xmlFormat.time2xml(self.updated, "updated", indent_tab=xmlFormat.DEFAULT_TAB, leading_tab="")
 
     def get_total(self):
         total = {
@@ -291,29 +275,10 @@ class groupStats:
         total.update(copy.deepcopy(self.data['totals']))
         return total
 
-    def get_xml_total(self,indent_tab=xmlFormat.DEFAULT_TAB,leading_tab=""):
-        total=self.get_total()
-        return xmlFormat.class2string(total,
-                                      inst_name="total",
-                                      indent_tab=indent_tab, leading_tab=leading_tab)
-
-
     def write_data(self):
         if (self.files_updated is not None) and ((self.updated-self.files_updated)<5):
             # files updated recently, no need to redo it
-            return 
-        
-
-        # write snaphot file
-        xml_str=('<?xml version="1.0" encoding="ISO-8859-1"?>\n\n'+
-                 '<VOFrontendGroupStats>\n'+
-                 self.get_xml_updated(indent_tab=xmlFormat.DEFAULT_TAB, leading_tab=xmlFormat.DEFAULT_TAB)+"\n"+
-                 self.get_xml_factories_data(indent_tab=xmlFormat.DEFAULT_TAB, leading_tab=xmlFormat.DEFAULT_TAB)+"\n"+
-                 self.get_xml_states_data(indent_tab=xmlFormat.DEFAULT_TAB, leading_tab=xmlFormat.DEFAULT_TAB)+"\n"+
-                 self.get_xml_total(indent_tab=xmlFormat.DEFAULT_TAB, leading_tab=xmlFormat.DEFAULT_TAB)+"\n"+
-                 "</VOFrontendGroupStats>\n")
-
-        Monitoring_Output.write_file("frontend_status.xml", xml_str)
+            return
 
         # Prepare Data
         total = self.get_total()
@@ -438,13 +403,6 @@ class factoryStats:
 
         return data1
 
-    def get_xml_data(self,indent_tab=xmlFormat.DEFAULT_TAB,leading_tab=""):
-        data=self.get_data()
-        return xmlFormat.dict2string(data,
-                                     dict_name="frontends", el_name="frontend",
-                                     subtypes_params={"class":{'subclass_params':{'Requested':{'dicts_params':{'Parameters':{'el_name':'Parameter'}}}}}},
-                                     indent_tab=indent_tab, leading_tab=leading_tab)
-
     def get_total(self):
         total={'Status':None,'Requested':None,'ClientMonitor':None}
         numtypes=(type(1), type(1), type(1.0))
@@ -493,30 +451,11 @@ class factoryStats:
 
         return total
 
-    def get_xml_total(self,indent_tab=xmlFormat.DEFAULT_TAB,leading_tab=""):
-        total=self.get_total()
-        return xmlFormat.class2string(total,
-                                      inst_name="total",
-                                      indent_tab=indent_tab, leading_tab=leading_tab)
-
-    def get_xml_updated(self,indent_tab=xmlFormat.DEFAULT_TAB,leading_tab=""):
-        return xmlFormat.time2xml(self.updated, "updated", indent_tab=xmlFormat.DEFAULT_TAB, leading_tab="")
-
     def write_file(self):
 
         if (self.files_updated is not None) and ((self.updated-self.files_updated)<5):
             # files updated recently, no need to redo it
             return
-
-
-        # write snaphot file
-        xml_str=('<?xml version="1.0" encoding="ISO-8859-1"?>\n\n'+
-                 '<glideFactoryEntryQStats>\n'+
-                 self.get_xml_updated(indent_tab=xmlFormat.DEFAULT_TAB, leading_tab=xmlFormat.DEFAULT_TAB)+"\n"+
-                 self.get_xml_data(indent_tab=xmlFormat.DEFAULT_TAB, leading_tab=xmlFormat.DEFAULT_TAB)+"\n"+
-                 self.get_xml_total(indent_tab=xmlFormat.DEFAULT_TAB, leading_tab=xmlFormat.DEFAULT_TAB)+"\n"+
-                 "</glideFactoryEntryQStats>\n")
-        Monitoring_Output.write_file("schedd_status.xml", xml_str)
 
         # Prepare Data
         data=self.get_data()

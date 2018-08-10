@@ -183,41 +183,10 @@ def aggregateStatus():
         if global_total[w] is None:
             del global_total[w] # remove group if not defined
 
-    # Write xml files
-
-
     updated=time.time()
-    xml_str=('<?xml version="1.0" encoding="ISO-8859-1"?>\n\n'+
-             '<VOFrontendStats>\n'+
-             xmlFormat.time2xml(updated, "updated", indent_tab=xmlFormat.DEFAULT_TAB, leading_tab=xmlFormat.DEFAULT_TAB)+"\n"+
-             xmlFormat.dict2string(status["groups"], dict_name="groups", el_name="group",
-                                   subtypes_params={"class":{"dicts_params":{"factories":{"el_name":"factory",
-                                                                                          "subtypes_params":{"class":{"subclass_params":{"Requested":{"dicts_params":{"Parameters":{"el_name":"Parameter",
-                                                                                                                                                                                    "subtypes_params":{"class":{}}}}}}}}},
-                                                                             "states":{"el_name":"state",
-                                                                                          "subtypes_params":{"class":{"subclass_params":{"Requested":{"dicts_params":{"Parameters":{"el_name":"Parameter",
-                                                                                                                                                                                    "subtypes_params":{"class":{}}}}}}}}}
-                                                                             }}},
-                                   leading_tab=xmlFormat.DEFAULT_TAB)+"\n"+
-             xmlFormat.class2string(status["total"], inst_name="total", leading_tab=xmlFormat.DEFAULT_TAB)+"\n"+
 
-             xmlFormat.dict2string(global_fact_totals['factories'], dict_name="factories", el_name="factory",
-                                   subtypes_params={"class":{"subclass_params":{"Requested":{"dicts_params":{"Parameters":{"el_name":"Parameter",
-
-       "subtypes_params":{"class":{}}}}}}}},
-                                   leading_tab=xmlFormat.DEFAULT_TAB)+"\n"+
-             xmlFormat.dict2string(global_fact_totals['states'], dict_name="states", el_name="state",
-                                   subtypes_params={"class":{"subclass_params":{"Requested":{"dicts_params":{"Parameters":{"el_name":"Parameter",
-
-       "subtypes_params":{"class":{}}}}}}}},
-                                   leading_tab=xmlFormat.DEFAULT_TAB)+"\n"+
-             "</VOFrontendStats>\n")
-
-    glideinFrontendMonitoring.Monitoring_Output.write_file(glideinFrontendMonitoring.Monitoring_Output.global_config_aggr["status_relname"], xml_str)
-                
-    # Write rrds
-
+    # Write Data
     for out in glideinFrontendMonitoring.Monitoring_Output.out_list:
-        out.write_aggregation(global_fact_totals, updated, global_total)
+        out.write_aggregation(global_fact_totals, updated, global_total, status)
 
     return status
