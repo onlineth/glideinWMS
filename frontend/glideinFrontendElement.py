@@ -182,7 +182,7 @@ class glideinFrontendElement:
         # We will be starting often, so reduce the clutter
         # logSupport.log.info("Logging initialized")
 
-        glideinFrontendMonitoring.Monitoring_Output.monitor_dir = glideinFrontendConfig.get_group_dir(os.path.join(self.work_dir, "monitor"), self.group_name)
+        glideinFrontendMonitoring.Monitoring_Output.updateConfig("monitor_dir", glideinFrontendConfig.get_group_dir(os.path.join(self.work_dir, "monitor"), self.group_name))
         glideinFrontendInterface.frontendConfig.advertise_use_tcp = (self.elementDescript.frontend_data['AdvertiseWithTCP'] in ('True', '1'))
         glideinFrontendInterface.frontendConfig.advertise_use_multi = (self.elementDescript.frontend_data['AdvertiseWithMultiple'] in ('True', '1'))
 

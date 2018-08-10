@@ -30,15 +30,19 @@ class Monitoring_Output(object):
 
     DEFAULT_CONFIG = {"monitor_dir": "monitor/"}
 
-    DEFAULT_CONFIG_AGGR = {"monitor_dir": "monitor/"}
+    DEFAULT_CONFIG_AGGR = {"monitor_dir": "monitor/",
+                           "groups": [],
+                           "entries": [],
+                           "status_relname": "frontend_status.xml"}
 
-
-    monitor_dir = "monitor/"
-
+    global_config = copy.deepcopy(DEFAULT_CONFIG)
+    global_config_aggr = copy.deepcopy(DEFAULT_CONFIG_AGGR)
 
     def __init__(self):
         self.config = copy.deepcopy(Monitoring_Output.DEFAULT_CONFIG)
         self.configAggr = copy.deepcopy(Monitoring_Output.DEFAULT_CONFIG_AGGR)
+
+    # Override methods
 
     def write_groupStats(self, total, factories_data, states_data, updated):
         pass
@@ -49,10 +53,51 @@ class Monitoring_Output(object):
     def write_aggregation(self, global_fact_totals, updated, global_total):
         pass
 
+    # Common Methods
+    def _updateConfig(self, key, value):
+        if key in self.config:
+            self.config[key] = value
+        else:
+            raise ValueError("Attempted to Update a Key that did not exsist")
+
+    def _updateConfigAggr(self, key, value):
+        if key in self.configAggr:
+            self.configAggr[key] = value
+        else:
+            raise ValueError("Attempted to Update a Key that did not exsist")
+
     # Static Functions
     @staticmethod
+    def createOutList():
+        if not (Monitoring_Output.out_list):
+            from glideinwms.lib import monitorRRD
+            monitorRRD_config = {}
+            out = monitorRRD.Monitoring_Output({}, {})
+            Monitoring_Output.out_list.append(out)
+
+    @staticmethod
+    def updateConfig(key, val, element=None):
+        if element:
+            element._updateConfig(key, val)
+        else:
+            if key in Monitoring_Output.global_config:
+                Monitoring_Output.global_config[key] = val
+            for out in Monitoring_Output.out_list:
+                out._updateConfig(key, val)
+
+    @staticmethod
+    def updateConfigAggr(key, val, element=None):
+        if element:
+            element._updateConfigAggr(key, val)
+        else:
+            if key in Monitoring_Output.global_config_aggr:
+                Monitoring_Output.global_config_aggr[key] = val
+            for out in Monitoring_Output.out_list:
+                out._updateConfigAggr(key, val)
+
+    @staticmethod
     def write_file(relative_fname, output_str):
-        fname = os.path.join(Monitoring_Output.monitor_dir, relative_fname)
+        fname = os.path.join(Monitoring_Output.global_config["monitor_dir"], relative_fname)
         if not os.path.isdir(os.path.dirname(fname)):
             os.makedirs(os.path.dirname(fname))
         # print "Writing "+fname
@@ -67,16 +112,10 @@ class Monitoring_Output(object):
 
     @staticmethod
     def establish_dir(relative_dname):
-        dname = os.path.join(Monitoring_Output.monitor_dir, relative_dname)
+        dname = os.path.join(Monitoring_Output.global_config["monitor_dir"], relative_dname)
         if not os.path.isdir(dname):
             os.mkdir(dname)
         return
-
-    @staticmethod
-    def createOutList():
-        from glideinwms.lib import monitorRRD
-        out = monitorRRD.Monitoring_Output({}, {})
-        Monitoring_Output.out_list.append(out)
 
 #########################################################################################################################################
 #

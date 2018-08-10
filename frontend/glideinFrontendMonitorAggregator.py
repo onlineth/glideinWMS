@@ -25,31 +25,11 @@ from glideinwms.lib import rrdSupport
 
 from glideinwms.frontend import glideinFrontendMonitoring
 
-############################################################
-#
-# Configuration
-#
-############################################################
+def config_frontend(monitor_dir, groups):
+    glideinFrontendMonitoring.Monitoring_Output.updateConfigAggr("monitor_dir", monitor_dir)
+    glideinFrontendMonitoring.Monitoring_Output.updateConfigAggr("groups", groups)
+    glideinFrontendMonitoring.Monitoring_Output.updateConfig("monitor_dir", monitor_dir)
 
-class MonitorAggregatorConfig:
-    def __init__(self):
-        # The name of the attribute that identifies the glidein
-        self.monitor_dir="monitor/"
-
-        # list of entries
-        self.entries=[]
-
-        # name of the status files
-        self.status_relname="frontend_status.xml"
-
-    def config_frontend(self, monitor_dir, groups):
-        self.monitor_dir=monitor_dir
-        self.groups=groups
-        glideinFrontendMonitoring.Monitoring_Output.monitor_dir=monitor_dir
-    
-
-# global configuration of the module
-monitorAggregatorConfig=MonitorAggregatorConfig()
 
 ###########################################################
 #
@@ -148,11 +128,10 @@ def verifyRRD(fix_rrd=False):
     If fix_rrd is true, then also attempt to add any missing attributes.
     """
     global rrd_problems_found
-    global monitorAggregatorConfig
     # FROM: migration_3_1
     # dir=monitorAggregatorConfig.monitor_dir
     # total_dir=os.path.join(dir, "total")
-    mon_dir = monitorAggregatorConfig.monitor_dir
+    mon_dir = glideinFrontendMonitoring.Monitoring_Output.global_config_aggr["monitor_dir"]
 
     status_dict = {}
     status_total_dict = {}
@@ -206,7 +185,6 @@ def verifyRRD(fix_rrd=False):
 # create an aggregate of status files, write it in an aggregate status file
 # end return the values
 def aggregateStatus():
-    global monitorAggregatorConfig
 
     type_strings = {
         'Jobs': 'Jobs',
@@ -231,10 +209,10 @@ def aggregateStatus():
         global_fact_totals[fos] = {}
     
     nr_groups = 0
-    for group in monitorAggregatorConfig.groups:
+    for group in glideinFrontendMonitoring.Monitoring_Output.global_config_aggr["groups"]:
         # load group status file
-        status_fname = os.path.join(os.path.join(monitorAggregatorConfig.monitor_dir, 'group_'+group),
-                                    monitorAggregatorConfig.status_relname)
+        status_fname = os.path.join(os.path.join(glideinFrontendMonitoring.Monitoring_Output.global_config_aggr["monitor_dir"], 'group_'+group),
+                                    glideinFrontendMonitoring.Monitoring_Output.global_config_aggr["status_relname"])
         try:
             group_data=xmlParse.xmlfile2dict(status_fname)
         except xmlParse.CorruptXML as e:
@@ -349,7 +327,7 @@ def aggregateStatus():
                                    leading_tab=xmlFormat.DEFAULT_TAB)+"\n"+
              "</VOFrontendStats>\n")
 
-    glideinFrontendMonitoring.Monitoring_Output.write_file(monitorAggregatorConfig.status_relname, xml_str)
+    glideinFrontendMonitoring.Monitoring_Output.write_file(glideinFrontendMonitoring.Monitoring_Output.global_config_aggr["status_relname"], xml_str)
                 
     # Write rrds
 

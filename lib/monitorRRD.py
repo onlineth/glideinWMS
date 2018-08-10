@@ -160,7 +160,7 @@ class Monitoring_Output(Monitoring_Output):
 
         for tp in ((".rrd", self.rrd_archives),):
             rrd_ext, rrd_archives = tp
-            fname = os.path.join(self.monitor_dir, relative_fname + rrd_ext)
+            fname = os.path.join(self.config["monitor_dir"], relative_fname + rrd_ext)
             # print "Writing RRD "+fname
 
             if not os.path.isfile(fname):
