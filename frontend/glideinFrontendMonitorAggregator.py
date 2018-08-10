@@ -202,47 +202,6 @@ def verifyRRD(fix_rrd=False):
     return not rrd_problems_found
 
 
-####################################
-# PRIVATE - Used by aggregateStatus
-# Write one RRD
-def write_one_rrd(name, updated, data, fact=0):
-    if fact == 0:
-        type_strings = frontend_total_type_strings
-    else:
-        type_strings = frontend_job_type_strings
-        
-    # initialize the RRD dictionary, so it gets created properly
-    val_dict = {}
-    for tp in frontend_status_attributes.keys():
-        if tp in type_strings.keys():
-            tp_str = type_strings[tp]
-            attributes_tp = frontend_status_attributes[tp]
-            for a in attributes_tp:
-                val_dict["%s%s" % (tp_str, a)] = None
-
-    for tp in data.keys():
-        # type - status or requested
-        if not (tp in frontend_status_attributes.keys()):
-            continue
-        if not (tp in type_strings.keys()):
-            continue
-
-        tp_str = type_strings[tp]
-        attributes_tp = frontend_status_attributes[tp]
-                
-        tp_el = data[tp]
-
-        for a in tp_el.keys():
-            if a in attributes_tp:
-                a_el = int(tp_el[a])
-                if not isinstance(a_el, dict):  # ignore subdictionaries
-                    val_dict["%s%s" % (tp_str, a)] = a_el
-                
-    glideinFrontendMonitoring.Monitoring_Output.establish_dir("%s" % name)
-    # Writing Here!
-    # glideinFrontendMonitoring.Monitoring_Output.write_rrd_multi("%s" % name,
-    #                                                            "GAUGE", updated, val_dict)
-
 ##############################################################################
 # create an aggregate of status files, write it in an aggregate status file
 # end return the values
@@ -394,16 +353,7 @@ def aggregateStatus():
                 
     # Write rrds
 
-    glideinFrontendMonitoring.Monitoring_Output.establish_dir("total")
-    write_one_rrd("total/Status_Attributes", updated, global_total, 0)
-
-    for fact in global_fact_totals['factories'].keys():
-        fe_dir="total/factory_%s"%glideinFrontendMonitoring.sanitize(fact)
-        glideinFrontendMonitoring.Monitoring_Output.establish_dir(fe_dir)
-        write_one_rrd("%s/Status_Attributes"%fe_dir, updated, global_fact_totals['factories'][fact], 1)
-    for fact in global_fact_totals['states'].keys():
-        fe_dir="total/state_%s"%glideinFrontendMonitoring.sanitize(fact)
-        glideinFrontendMonitoring.Monitoring_Output.establish_dir(fe_dir)
-        write_one_rrd("%s/Status_Attributes"%fe_dir, updated, global_fact_totals['states'][fact], 1)
+    for out in glideinFrontendMonitoring.Monitoring_Output.out_list:
+        out.write_aggregation(global_fact_totals, updated, global_total)
 
     return status

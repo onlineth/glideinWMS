@@ -46,6 +46,9 @@ class Monitoring_Output(object):
     def write_factoryStats(self):
         pass
 
+    def write_aggregation(self, global_fact_totals, updated, global_total):
+        pass
+
     # Static Functions
     @staticmethod
     def write_file(relative_fname, output_str):

@@ -4,6 +4,38 @@ from glideinwms.lib import rrdSupport
 from glideinwms.lib import logSupport
 
 
+# PM: Nov 26, 2014
+# There is a limit on rrd field names. Max allowed is 20 chars long.
+# RRD enforces this limit while creating fields, but will not enforce the limits
+# when trying to read from a field with name longer than 20 chars.
+# Truncate the names for following to be in limits to avoid above issue.
+frontend_status_attributes = {
+    'Jobs':("Idle", "OldIdle", "Running", "Total", "Idle_3600"),
+    'Glideins':("Idle", "Running", "Total"),
+    'MatchedJobs':("Idle", "EffIdle", "OldIdle", "Running", "RunningHere"),
+    'MatchedGlideins':("Total", "Idle", "Running", "Failed"),
+    #'MatchedGlideins':("Total","Idle","Running","Failed","TCores","ICores","RCores"),
+    'MatchedCores':("Total", "Idle", "Running"),
+    'Requested':("Idle", "MaxRun")
+}
+
+frontend_total_type_strings = {
+    'Jobs':'Jobs',
+    'Glideins':'Glidein',
+    'MatchedJobs':'MatchJob',
+    'MatchedGlideins':'MatchGlidein',
+    'MatchedCores':'MatchCore',
+    'Requested':'Req'
+}
+
+frontend_job_type_strings = {
+    'MatchedJobs':'MatchJob',
+    'MatchedGlideins':'MatchGlidein',
+    'MatchedCores':'MatchCore',
+    'Requested':'Req'
+}
+
+
 # noinspection PyRedeclaration
 class Monitoring_Output(Monitoring_Output):
     def __init__(self, config, configAgg):
@@ -50,6 +82,21 @@ class Monitoring_Output(Monitoring_Output):
 
         for fact in states_data.keys():
             self.write_one_rrd("state_%s" % sanitize(fact), states_data[fact], 1)
+
+    def write_aggregation(self, global_fact_totals, updated, global_total):
+        Monitoring_Output.establish_dir("total")
+        self.write_one_rrd_aggr("total/Status_Attributes", updated, global_total, 0)
+
+        for fact in global_fact_totals['factories'].keys():
+            fe_dir = "total/factory_%s" % sanitize(fact)
+            Monitoring_Output.establish_dir(fe_dir)
+            self.write_one_rrd_aggr("%s/Status_Attributes" % fe_dir, updated, global_fact_totals['factories'][fact], 1)
+        for fact in global_fact_totals['states'].keys():
+            fe_dir = "total/state_%s" % sanitize(fact)
+            Monitoring_Output.establish_dir(fe_dir)
+            self.write_one_rrd_aggr("%s/Status_Attributes" % fe_dir, updated, global_fact_totals['states'][fact], 1)
+
+
 
     ###############################
     # PRIVATE - Used by write_file
@@ -138,3 +185,43 @@ class Monitoring_Output(Monitoring_Output):
                 logSupport.log.error("Failed to update %s" % fname)
                 # logSupport.log.exception(traceback.format_exc())
         return
+
+
+    ####################################
+    # PRIVATE - Used by aggregateStatus
+    # Write one RRD
+    def write_one_rrd_aggr(self, name, updated, data, fact=0):
+        if fact == 0:
+            type_strings = frontend_total_type_strings
+        else:
+            type_strings = frontend_job_type_strings
+
+        # initialize the RRD dictionary, so it gets created properly
+        val_dict = {}
+        for tp in frontend_status_attributes.keys():
+            if tp in type_strings.keys():
+                tp_str = type_strings[tp]
+                attributes_tp = frontend_status_attributes[tp]
+                for a in attributes_tp:
+                    val_dict["%s%s" % (tp_str, a)] = None
+
+        for tp in data.keys():
+            # type - status or requested
+            if not (tp in frontend_status_attributes.keys()):
+                continue
+            if not (tp in type_strings.keys()):
+                continue
+
+            tp_str = type_strings[tp]
+            attributes_tp = frontend_status_attributes[tp]
+
+            tp_el = data[tp]
+
+            for a in tp_el.keys():
+                if a in attributes_tp:
+                    a_el = int(tp_el[a])
+                    if not isinstance(a_el, dict):  # ignore subdictionaries
+                        val_dict["%s%s" % (tp_str, a)] = a_el
+
+        Monitoring_Output.establish_dir("%s" % name)
+        self.write_rrd_multi("%s" % name, "GAUGE", updated, val_dict)
