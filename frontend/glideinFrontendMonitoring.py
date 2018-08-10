@@ -25,19 +25,20 @@ from glideinwms.lib import logSupport
 from glideinwms.lib import xmlFormat
 
 
-class Monitoring_List:
+class Monitoring_Output(object):
     out_list = []
 
-    @staticmethod
-    def createOutList():
-        from glideinwms.lib import monitorRRD
-        out = monitorRRD.Monitoring_Output()
-        Monitoring_List.out_list.append(out)
+    DEFAULT_CONFIG = {"monitor_dir": "monitor/"}
+
+    DEFAULT_CONFIG_AGGR = {"monitor_dir": "monitor/"}
 
 
-class Monitoring_Output:
     monitor_dir = "monitor/"
 
+
+    def __init__(self):
+        self.config = copy.deepcopy(Monitoring_Output.DEFAULT_CONFIG)
+        self.configAggr = copy.deepcopy(Monitoring_Output.DEFAULT_CONFIG_AGGR)
 
     def write_groupStats(self, total, factories_data, states_data, updated):
         pass
@@ -67,6 +68,12 @@ class Monitoring_Output:
         if not os.path.isdir(dname):
             os.mkdir(dname)
         return
+
+    @staticmethod
+    def createOutList():
+        from glideinwms.lib import monitorRRD
+        out = monitorRRD.Monitoring_Output({}, {})
+        Monitoring_Output.out_list.append(out)
 
 #########################################################################################################################################
 #
@@ -271,7 +278,7 @@ class groupStats:
         factories_data = self.get_factories_data()
         states_data = self.get_states_data()
 
-        for out in Monitoring_List.out_list:
+        for out in Monitoring_Output.out_list:
             out.write_groupStats(total, factories_data, states_data, self.updated)
 
         self.files_updated=self.updated        
@@ -599,4 +606,4 @@ def write_frontend_descript_xml(frontendDescript, monitor_dir):
 
 ##################################################
 
-Monitoring_List.createOutList()
+Monitoring_Output.createOutList()

@@ -5,8 +5,15 @@ from glideinwms.lib import logSupport
 
 
 # noinspection PyRedeclaration
-class Monitoring_Output(object, Monitoring_Output):
-    def __init__(self):
+class Monitoring_Output(Monitoring_Output):
+    def __init__(self, config, configAgg):
+        super(Monitoring_Output, self).__init__()
+
+        for key in config:
+            self.config[key] = config[key]
+            self.configAggr[key] = configAgg[key]
+
+
         self.attributes = {
             'Jobs':("Idle", "OldIdle", "Running", "Total", "Idle_3600"),
             'Glideins':("Idle", "Running", "Total"),
