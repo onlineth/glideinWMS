@@ -35,18 +35,8 @@ frontend_job_type_strings = {
     'Requested':'Req'
 }
 
-
-# noinspection PyRedeclaration
-class Monitoring_Output(Monitoring_Output):
-    def __init__(self, config, configAgg):
-        super(Monitoring_Output, self).__init__()
-
-        for key in config:
-            self.config[key] = config[key]
-            self.configAggr[key] = configAgg[key]
-
-
-        self.attributes = {
+# Default Configuration
+DEFAULT_CONFIG = {"attributes": {
             'Jobs':("Idle", "OldIdle", "Running", "Total", "Idle_3600"),
             'Glideins':("Idle", "Running", "Total"),
             'MatchedJobs':("Idle", "EffIdle", "OldIdle", "Running", "RunningHere"),
@@ -54,23 +44,42 @@ class Monitoring_Output(Monitoring_Output):
             'MatchedGlideins':("Total", "Idle", "Running", "Failed"),
             'MatchedCores':("Total", "Idle", "Running"),
             'Requested':("Idle", "MaxRun")
-        }
-
-        # set default values
-        # user should modify if needed
-        self.rrd_step=300       #default to 5 minutes
-        self.rrd_heartbeat=1800 #default to 30 minutes, should be at least twice the loop time
-        self.rrd_archives=[('AVERAGE', 0.8, 1, 740),      # max precision, keep 2.5 days
+        },
+    "rrd_step": 300,       #default to 5 minutes
+    "rrd_heartbeat": 1800, #default to 30 minutes, should be at least twice the loop time
+    "rrd_archives": [('AVERAGE', 0.8, 1, 740),      # max precision, keep 2.5 days
                            ('AVERAGE', 0.92, 12, 740),       # 1 h precision, keep for a month (30 days)
                            ('AVERAGE', 0.98, 144, 740)        # 12 hour precision, keep for a year
-                           ]
+                           ],
+    "states_names": ('Unmatched', 'MatchedUp', 'MatchedDown')
+}
+
+DEFAULT_CONFIG_AGGR = {}
+
+
+# noinspection PyRedeclaration
+class Monitoring_Output(Monitoring_Output):
+    def __init__(self, config, configAgg):
+        # Get Default Config from Parent
+        super(Monitoring_Output, self).__init__()
+
+        # Set Default Config for this Child
+        for key in DEFAULT_CONFIG:
+            self.config[key] = DEFAULT_CONFIG[key]
+
+        for key in DEFAULT_CONFIG_AGGR:
+            self.configAggr[key] = DEFAULT_CONFIG_AGGR[key]
+
+        # Set Config from Pass Parameters (from the Frontend XML Config File)
+        for key in config:
+            self.config[key] = config[key]
+
+        for key in configAgg:
+            self.configAggr[key] = configAgg[key]
 
         self.rrd_obj = rrdSupport.rrdSupport()
 
         self.updated = time.time()
-
-        # only these will be states, all other names are assumed to be factories
-        self.states_names=('Unmatched', 'MatchedUp', 'MatchedDown')
 
     def write_groupStats(self, total, factories_data, states_data, updated):
         self.updated = updated
@@ -121,24 +130,24 @@ class Monitoring_Output(Monitoring_Output):
             }
 
         #init, so that all get created properly
-        for tp in self.attributes.keys():
+        for tp in self.config["attributes"].keys():
             if tp in type_strings.keys():
                 tp_str=type_strings[tp]
-                attributes_tp=self.attributes[tp]
+                attributes_tp=self.config["attributes"][tp]
                 for a in attributes_tp:
                     val_dict["%s%s"%(tp_str, a)]=None
 
 
         for tp in data:
             # type - Jobs,Slots
-            if not (tp in self.attributes.keys()):
+            if not (tp in self.config["attributes"].keys()):
                 continue
             if not (tp in type_strings.keys()):
                 continue
 
             tp_str=type_strings[tp]
 
-            attributes_tp=self.attributes[tp]
+            attributes_tp=self.config["attributes"][tp]
 
             fe_el_tp=data[tp]
             for a in fe_el_tp.keys():
@@ -158,7 +167,7 @@ class Monitoring_Output(Monitoring_Output):
         if self.rrd_obj.isDummy():
             return  # nothing to do, no rrd bin no rrd creation
 
-        for tp in ((".rrd", self.rrd_archives),):
+        for tp in ((".rrd", self.config["rrd_archives"]),):
             rrd_ext, rrd_archives = tp
             fname = os.path.join(self.config["monitor_dir"], relative_fname + rrd_ext)
             # print "Writing RRD "+fname
@@ -173,9 +182,9 @@ class Monitoring_Output(Monitoring_Output):
 
                 ds_arr = []
                 for ds_name in ds_names:
-                    ds_arr.append((ds_name, ds_type, self.rrd_heartbeat, min_val, max_val))
+                    ds_arr.append((ds_name, ds_type, self.config["rrd_heartbeat"], min_val, max_val))
                 self.rrd_obj.create_rrd_multi(fname,
-                                              self.rrd_step, rrd_archives,
+                                              self.config["rrd_step"], rrd_archives,
                                               ds_arr)
 
             # print "Updating RRD "+fname
