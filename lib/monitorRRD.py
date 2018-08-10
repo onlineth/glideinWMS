@@ -51,7 +51,11 @@ DEFAULT_CONFIG = {"attributes": {
                            ('AVERAGE', 0.92, 12, 740),       # 1 h precision, keep for a month (30 days)
                            ('AVERAGE', 0.98, 144, 740)        # 12 hour precision, keep for a year
                            ],
-    "states_names": ('Unmatched', 'MatchedUp', 'MatchedDown')
+    "states_names": ('Unmatched', 'MatchedUp', 'MatchedDown'),
+    "factoryStats_attributes": {'Jobs':("Idle", "OldIdle", "Running", "Total"),
+                         'Matched':("Idle", "OldIdle", "Running", "Total"),
+                         'Requested':("Idle", "MaxRun"),
+                         'Slots':("Idle", "Running", "Total")}
 }
 
 DEFAULT_CONFIG_AGGR = {}
@@ -91,6 +95,48 @@ class Monitoring_Output(Monitoring_Output):
 
         for fact in states_data.keys():
             self.write_one_rrd("state_%s" % sanitize(fact), states_data[fact], 1)
+
+    def write_factoryStats(self, data, total_el, updated):
+        self.updated = updated
+
+        # update RRDs
+        type_strings={'Status':'Status','Requested':'Req','ClientMonitor':'Client'}
+        for fe in [None]+data.keys():
+            if fe is None: # special key == Total
+                fe_dir="total"
+                fe_el=total_el
+            else:
+                fe_dir="frontend_"+fe
+                fe_el=data[fe]
+
+            val_dict={}
+
+            #init, so that all get created properly
+            for tp in self.config["factoryStats_attributes"].keys():
+                tp_str=type_strings[tp]
+                attributes_tp=self.config["factoryStats_attributes"][tp]
+                for a in attributes_tp:
+                    val_dict["%s%s"%(tp_str, a)]=None
+
+            self.establish_dir(fe_dir)
+            for tp in fe_el.keys():
+                # type - Status, Requested or ClientMonitor
+                if not (tp in self.config["factoryStats_attributes"].keys()):
+                    continue
+
+                tp_str=type_strings[tp]
+
+                attributes_tp=self.config["factoryStats_attributes"][tp]
+
+                fe_el_tp=fe_el[tp]
+                for a in fe_el_tp.keys():
+                    if a in attributes_tp:
+                        a_el=fe_el_tp[a]
+                        if not isinstance(a_el, dict): # ignore subdictionaries
+                            val_dict["%s%s"%(tp_str, a)]=a_el
+
+            self.write_rrd_multi("%s/Status_Attributes"%fe_dir,
+                                             "GAUGE", self.updated, val_dict)
 
     def write_aggregation(self, global_fact_totals, updated, global_total):
         Monitoring_Output.establish_dir("total")
