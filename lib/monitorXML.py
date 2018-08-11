@@ -1,8 +1,6 @@
-import copy
-import time, os
-from glideinwms.frontend.glideinFrontendMonitoring import Monitoring_Output, tmp2final
-from glideinwms.lib import logSupport
+import time
 from glideinwms.lib import xmlFormat
+from glideinwms.lib.monitoringOutput import Monitoring_Output
 
 # Default Configuration
 DEFAULT_CONFIG = {"name": "monitorXML"}

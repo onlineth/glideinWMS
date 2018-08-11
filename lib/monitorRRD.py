@@ -1,7 +1,7 @@
 import shutil
 import tempfile
 import time, os
-from glideinwms.frontend.glideinFrontendMonitoring import Monitoring_Output, sanitize
+from glideinwms.lib.monitoringOutput import Monitoring_Output, sanitize
 from glideinwms.lib import rrdSupport
 from glideinwms.lib import logSupport
 
