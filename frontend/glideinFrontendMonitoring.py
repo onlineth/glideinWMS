@@ -28,7 +28,8 @@ from glideinwms.lib import xmlFormat
 class Monitoring_Output(object):
     out_list = []
 
-    DEFAULT_CONFIG = {"monitor_dir": "monitor/"}
+    DEFAULT_CONFIG = {"monitor_dir": "monitor/",
+                      "name": "Monitor_Name"}
 
     DEFAULT_CONFIG_AGGR = {"monitor_dir": "monitor/",
                            "groups": [],
@@ -52,6 +53,11 @@ class Monitoring_Output(object):
 
     def write_aggregation(self, global_fact_totals, updated, global_total, status):
         pass
+
+    def verify(self, fix):
+        # fix is a dictionary that may contain parameters passed from reconfig
+        # (ie. fix["fix_rrd"] = True # Then fix the RRD Files)
+        return False
 
     # Common Methods
     def _updateConfig(self, key, value):

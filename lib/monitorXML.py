@@ -5,7 +5,7 @@ from glideinwms.lib import logSupport
 from glideinwms.lib import xmlFormat
 
 # Default Configuration
-DEFAULT_CONFIG = {}
+DEFAULT_CONFIG = {"name": "monitorXML"}
 
 DEFAULT_CONFIG_AGGR = {}
 

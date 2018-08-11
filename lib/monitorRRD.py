@@ -57,7 +57,8 @@ DEFAULT_CONFIG = {"attributes": {
     "factoryStats_attributes": {'Jobs':("Idle", "OldIdle", "Running", "Total"),
                          'Matched':("Idle", "OldIdle", "Running", "Total"),
                          'Requested':("Idle", "MaxRun"),
-                         'Slots':("Idle", "Running", "Total")}
+                         'Slots':("Idle", "Running", "Total")},
+    "name": "monitorRRD"
 }
 
 DEFAULT_CONFIG_AGGR = {}
@@ -86,6 +87,9 @@ class Monitoring_Output(Monitoring_Output):
         self.rrd_obj = rrdSupport.rrdSupport()
 
         self.updated = time.time()
+
+        # Used in verification
+        self.rrd_problems_found = False
 
     def write_groupStats(self, total, factories_data, states_data, updated):
         self.updated = updated
@@ -153,7 +157,14 @@ class Monitoring_Output(Monitoring_Output):
             Monitoring_Output.establish_dir(fe_dir)
             self.write_one_rrd_aggr("%s/Status_Attributes" % fe_dir, updated, global_fact_totals['states'][fact], 1)
 
+    def verify(self, fix):
+        if not (self.verifyRRD(fix["fix_rrd"])):
+            self.verifyError = "Run with -fix_rrd option to update errors\n" \
+                               "WARNING: back up your existing rrds before auto-fixing rrds"
+            return True
+        return False
 
+    # Internal Functions
 
     ###############################
     # PRIVATE - Used by write_file
@@ -283,113 +294,109 @@ class Monitoring_Output(Monitoring_Output):
         Monitoring_Output.establish_dir("%s" % name)
         self.write_rrd_multi("%s" % name, "GAUGE", updated, val_dict)
 
-####################################
-rrd_problems_found=False
-def verifyHelper(filename,dict, fix_rrd=False):
-    """
-    Helper function for verifyRRD.  Checks one file,
-    prints out errors.  if fix_rrd, will attempt to
-    dump out rrd to xml, add the missing attributes,
-    then restore.  Original file is obliterated.
+    def verifyHelper(self, filename,dict, fix_rrd=False):
+        """
+        Helper function for verifyRRD.  Checks one file,
+        prints out errors.  if fix_rrd, will attempt to
+        dump out rrd to xml, add the missing attributes,
+        then restore.  Original file is obliterated.
 
-    @param filename: filename of rrd to check
-    @param dict: expected dictionary
-    @param fix_rrd: if true, will attempt to add missing attrs
-    """
-    global rrd_problems_found
-    if not os.path.exists(filename):
-        print("WARNING: %s missing, will be created on restart" % (filename))
-        return
-    rrd_obj=rrdSupport.rrdSupport()
-    (missing, extra)=rrd_obj.verify_rrd(filename, dict)
-    for attr in extra:
-        print("ERROR: %s has extra attribute %s" % (filename, attr))
-        if fix_rrd:
-            print("ERROR: fix_rrd cannot fix extra attributes")
-    if not fix_rrd:
-        for attr in missing:
-            print("ERROR: %s missing attribute %s" % (filename, attr))
-        if len(missing) > 0:
-            rrd_problems_found=True
-    if fix_rrd and (len(missing) > 0):
-        (f, tempfilename)=tempfile.mkstemp()
-        (out, tempfilename2)=tempfile.mkstemp()
-        (restored, restoredfilename)=tempfile.mkstemp()
-        backup_str=str(int(time.time()))+".backup"
-        print("Fixing %s... (backed up to %s)" % (filename, filename+backup_str))
-        os.close(out)
-        os.close(restored)
-        os.unlink(restoredfilename)
-        #Use exe version since dump, restore not available in rrdtool
-        dump_obj=rrdSupport.rrdtool_exe()
-        outstr=dump_obj.dump(filename)
-        for line in outstr:
-            os.write(f, "%s\n"%line)
-        os.close(f)
-        rrdSupport.addDataStore(tempfilename, tempfilename2, missing)
-        os.unlink(filename)
-        outstr=dump_obj.restore(tempfilename2, restoredfilename)
-        os.unlink(tempfilename)
-        os.unlink(tempfilename2)
-        shutil.move(restoredfilename, filename)
-    if len(extra) > 0:
-        rrd_problems_found=True
+        @param filename: filename of rrd to check
+        @param dict: expected dictionary
+        @param fix_rrd: if true, will attempt to add missing attrs
+        """
+        if not os.path.exists(filename):
+            print("WARNING: %s missing, will be created on restart" % (filename))
+            return
+        rrd_obj=rrdSupport.rrdSupport()
+        (missing, extra)=rrd_obj.verify_rrd(filename, dict)
+        for attr in extra:
+            print("ERROR: %s has extra attribute %s" % (filename, attr))
+            if fix_rrd:
+                print("ERROR: fix_rrd cannot fix extra attributes")
+        if not fix_rrd:
+            for attr in missing:
+                print("ERROR: %s missing attribute %s" % (filename, attr))
+            if len(missing) > 0:
+                self.rrd_problems_found=True
+        if fix_rrd and (len(missing) > 0):
+            (f, tempfilename)=tempfile.mkstemp()
+            (out, tempfilename2)=tempfile.mkstemp()
+            (restored, restoredfilename)=tempfile.mkstemp()
+            backup_str=str(int(time.time()))+".backup"
+            print("Fixing %s... (backed up to %s)" % (filename, filename+backup_str))
+            os.close(out)
+            os.close(restored)
+            os.unlink(restoredfilename)
+            #Use exe version since dump, restore not available in rrdtool
+            dump_obj=rrdSupport.rrdtool_exe()
+            outstr=dump_obj.dump(filename)
+            for line in outstr:
+                os.write(f, "%s\n"%line)
+            os.close(f)
+            rrdSupport.addDataStore(tempfilename, tempfilename2, missing)
+            os.unlink(filename)
+            outstr=dump_obj.restore(tempfilename2, restoredfilename)
+            os.unlink(tempfilename)
+            os.unlink(tempfilename2)
+            shutil.move(restoredfilename, filename)
+        if len(extra) > 0:
+            self.rrd_problems_found=True
 
-def verifyRRD(fix_rrd=False):
-    """
-    Go through all known monitoring rrds and verify that they
-    match existing schema (could be different if an upgrade happened)
-    If fix_rrd is true, then also attempt to add any missing attributes.
-    """
-    global rrd_problems_found
-    # FROM: migration_3_1
-    # dir=monitorAggregatorConfig.monitor_dir
-    # total_dir=os.path.join(dir, "total")
-    mon_dir = Monitoring_Output.global_config_aggr["monitor_dir"]
+    def verifyRRD(self, fix_rrd=False):
+        """
+        Go through all known monitoring rrds and verify that they
+        match existing schema (could be different if an upgrade happened)
+        If fix_rrd is true, then also attempt to add any missing attributes.
+        """
+        # FROM: migration_3_1
+        # dir=monitorAggregatorConfig.monitor_dir
+        # total_dir=os.path.join(dir, "total")
+        mon_dir = Monitoring_Output.global_config_aggr["monitor_dir"]
 
-    status_dict = {}
-    status_total_dict = {}
-    for tp in frontend_status_attributes.keys():
-        if tp in frontend_total_type_strings.keys():
-            tp_str = frontend_total_type_strings[tp]
-            attributes_tp = frontend_status_attributes[tp]
-            for a in attributes_tp:
-                status_total_dict["%s%s" % (tp_str, a)] = None
-        if tp in frontend_job_type_strings.keys():
-            tp_str = frontend_job_type_strings[tp]
-            attributes_tp = frontend_status_attributes[tp]
-            for a in attributes_tp:
-                status_dict["%s%s" % (tp_str, a)] = None
+        status_dict = {}
+        status_total_dict = {}
+        for tp in frontend_status_attributes.keys():
+            if tp in frontend_total_type_strings.keys():
+                tp_str = frontend_total_type_strings[tp]
+                attributes_tp = frontend_status_attributes[tp]
+                for a in attributes_tp:
+                    status_total_dict["%s%s" % (tp_str, a)] = None
+            if tp in frontend_job_type_strings.keys():
+                tp_str = frontend_job_type_strings[tp]
+                attributes_tp = frontend_status_attributes[tp]
+                for a in attributes_tp:
+                    status_dict["%s%s" % (tp_str, a)] = None
 
-    if not os.path.isdir(mon_dir):
-        print("WARNING: monitor/ directory does not exist, skipping rrd verification.")
-        return True
-    # FROM: migration_3_1
-    # for filename in os.listdir(dir):
-    #     if (filename[:6]=="group_") or (filename=="total"):
-    #         current_dir=os.path.join(dir, filename)
-    #         if filename=="total":
-    #             verifyHelper(os.path.join(current_dir,
-    #                 "Status_Attributes.rrd"), status_total_dict, fix_rrd)
-    #         for dirname in os.listdir(current_dir):
-    #             current_subdir=os.path.join(current_dir, dirname)
-    #             if dirname[:6]=="state_":
-    #                 verifyHelper(os.path.join(current_subdir,
-    #                     "Status_Attributes.rrd"), status_dict, fix_rrd)
-    #             if dirname[:8]=="factory_":
-    #                 verifyHelper(os.path.join(current_subdir,
-    #                     "Status_Attributes.rrd"), status_dict, fix_rrd)
-    #             if dirname=="total":
-    #                 verifyHelper(os.path.join(current_subdir,
-    #                     "Status_Attributes.rrd"), status_total_dict, fix_rrd)
-    for dir_name, sdir_name, f_list in os.walk(mon_dir):
-        for file_name in f_list:
-            if file_name == 'Status_Attributes.rrd':
-                if os.path.basename(dir_name) == 'total':
-                    verifyHelper(os.path.join(dir_name, file_name),
-                                 status_total_dict, fix_rrd)
-                else:
-                    verifyHelper(os.path.join(dir_name, file_name),
-                                 status_dict, fix_rrd)
+        if not os.path.isdir(mon_dir):
+            print("WARNING: monitor/ directory does not exist, skipping rrd verification.")
+            return True
+        # FROM: migration_3_1
+        # for filename in os.listdir(dir):
+        #     if (filename[:6]=="group_") or (filename=="total"):
+        #         current_dir=os.path.join(dir, filename)
+        #         if filename=="total":
+        #             verifyHelper(os.path.join(current_dir,
+        #                 "Status_Attributes.rrd"), status_total_dict, fix_rrd)
+        #         for dirname in os.listdir(current_dir):
+        #             current_subdir=os.path.join(current_dir, dirname)
+        #             if dirname[:6]=="state_":
+        #                 verifyHelper(os.path.join(current_subdir,
+        #                     "Status_Attributes.rrd"), status_dict, fix_rrd)
+        #             if dirname[:8]=="factory_":
+        #                 verifyHelper(os.path.join(current_subdir,
+        #                     "Status_Attributes.rrd"), status_dict, fix_rrd)
+        #             if dirname=="total":
+        #                 verifyHelper(os.path.join(current_subdir,
+        #                     "Status_Attributes.rrd"), status_total_dict, fix_rrd)
+        for dir_name, sdir_name, f_list in os.walk(mon_dir):
+            for file_name in f_list:
+                if file_name == 'Status_Attributes.rrd':
+                    if os.path.basename(dir_name) == 'total':
+                        self.verifyHelper(os.path.join(dir_name, file_name),
+                                     status_total_dict, fix_rrd)
+                    else:
+                        self.verifyHelper(os.path.join(dir_name, file_name),
+                                     status_dict, fix_rrd)
 
-    return not rrd_problems_found
+        return not self.rrd_problems_found
