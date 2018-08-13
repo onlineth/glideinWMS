@@ -76,7 +76,8 @@ class Monitoring_Output(object):
     @staticmethod
     def createOutList():
         if not (Monitoring_Output.out_list):
-            from glideinwms.lib import monitorRRD, monitorXML
+            from glideinwms.frontend import monitorXML
+            from glideinwms.frontend import monitorRRD
             monitorRRD_config = {}
             out = monitorRRD.Monitoring_Output({}, {})
             Monitoring_Output.out_list.append(out)
