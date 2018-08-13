@@ -16,13 +16,17 @@ from __future__ import print_function
 import time
 import os.path
 import os
+import tempfile
+import shutil
 
-from glideinwms.lib import logSupport, xmlParse, monitoringOutput
+from glideinwms.lib import logSupport
+from glideinwms.lib import xmlParse, xmlFormat
+from glideinwms.frontend import glideinFrontendMonitoring
 
 def config_frontend(monitor_dir, groups):
-    monitoringOutput.Monitoring_Output.updateConfigAggr("monitor_dir", monitor_dir)
-    monitoringOutput.Monitoring_Output.updateConfigAggr("groups", groups)
-    monitoringOutput.Monitoring_Output.updateConfig("monitor_dir", monitor_dir)
+    glideinFrontendMonitoring.Monitoring_Output.updateConfigAggr("monitor_dir", monitor_dir)
+    glideinFrontendMonitoring.Monitoring_Output.updateConfigAggr("groups", groups)
+    glideinFrontendMonitoring.Monitoring_Output.updateConfig("monitor_dir", monitor_dir)
 
 
 ###########################################################
@@ -91,10 +95,10 @@ def aggregateStatus():
         global_fact_totals[fos] = {}
     
     nr_groups = 0
-    for group in monitoringOutput.Monitoring_Output.global_config_aggr["groups"]:
+    for group in glideinFrontendMonitoring.Monitoring_Output.global_config_aggr["groups"]:
         # load group status file
-        status_fname = os.path.join(os.path.join(monitoringOutput.Monitoring_Output.global_config_aggr["monitor_dir"], 'group_'+group),
-                                    monitoringOutput.Monitoring_Output.global_config_aggr["status_relname"])
+        status_fname = os.path.join(os.path.join(glideinFrontendMonitoring.Monitoring_Output.global_config_aggr["monitor_dir"], 'group_'+group),
+                                    glideinFrontendMonitoring.Monitoring_Output.global_config_aggr["status_relname"])
         try:
             group_data=xmlParse.xmlfile2dict(status_fname)
         except xmlParse.CorruptXML as e:
@@ -182,7 +186,7 @@ def aggregateStatus():
     updated=time.time()
 
     # Write Data
-    for out in monitoringOutput.Monitoring_Output.out_list:
+    for out in glideinFrontendMonitoring.Monitoring_Output.out_list:
         out.write_aggregation(global_fact_totals, updated, global_total, status)
 
     return status
