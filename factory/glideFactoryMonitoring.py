@@ -14,58 +14,154 @@
 
 import json
 import os
+import pickle
 import re
 import time
 import copy
 import math
-import pickle
-from glideinwms.lib import xmlFormat
+from glideinwms.lib import xmlFormat, rrdSupport
 from glideinwms.lib import timeConversion
-from glideinwms.lib import rrdSupport
 from glideinwms.lib import logSupport
 from glideinwms.lib import cleanupSupport
 from glideinwms.lib import util
 
-# list of rrd files that each site has
-rrd_list = ('Status_Attributes.rrd', 'Log_Completed.rrd', 'Log_Completed_Stats.rrd', 'Log_Completed_WasteTime.rrd', 'Log_Counts.rrd')
 
-############################################################
-#
-# Configuration
-#
-############################################################
+class Monitoring_Output(object):
+    out_list = []
 
-class MonitoringConfig:
-    def __init__(self, log=logSupport.log):
-        # set default values
-        # user should modify if needed
-        self.rrd_step = 300        # default to 5 minutes
-        self.rrd_heartbeat = 1800  # default to 30 minutes, should be at least twice the loop time
-        self.rrd_ds_name = "val"
-        self.rrd_archives = [('AVERAGE', 0.8, 1, 740),  # max precision, keep 2.5 days
+    DEFAULT_CONFIG = {"monitor_dir": "monitor/",
+                      "log_dir": "log/",
+                      "logCleanupObj": None,
+                      "my_name": "Unknown",
+                      "name": "Monitor_Name",
+                      "log": None,
+                      # This RRD is for the extraction of data
+                      # list of rrd files that each site has
+                      "rrd_list": ('Status_Attributes.rrd', 'Log_Completed.rrd', 
+                                   'Log_Completed_Stats.rrd', 'Log_Completed_WasteTime.rrd',
+                                   'Log_Counts.rrd'),
+                      "rrd_archives": [('AVERAGE', 0.8, 1, 740),  # max precision, keep 2.5 days
                              ('AVERAGE', 0.92, 12, 740),  # 1 h precision, keep for a month (30 days)
                              ('AVERAGE', 0.98, 144, 740)  # 12 hour precision, keep for a year
-                             ]
+                             ],
+                      "rrd_step": 300
+    }
 
-        self.monitor_dir = "monitor/"
+    DEFAULT_CONFIG_AGGR = {}
 
-        self.log_dir = "log/"
-        self.logCleanupObj = None
+    global_config = copy.deepcopy(DEFAULT_CONFIG)
+    global_config_aggr = copy.deepcopy(DEFAULT_CONFIG_AGGR)
 
-        self.rrd_obj = rrdSupport.rrdSupport()
-        """@ivar: The name of the attribute that identifies the glidein """
-        self.my_name = "Unknown"
-        self.log = log
+    def __init__(self):
+        self.config = copy.deepcopy(Monitoring_Output.DEFAULT_CONFIG)
+        self.configAggr = copy.deepcopy(Monitoring_Output.DEFAULT_CONFIG_AGGR)
 
-    def config_log(self, log_dir, max_days, min_days, max_mbs):
-        self.log_dir = log_dir
+    # Override methods
+    def write_condorQStats(self, data, total_el):
+        pass
+
+    def write_condorLogSummary(self, fe_dir, val_dict_counts_desc, val_dict_counts, val_dict_completed,
+                               val_dict_stats, val_dict_wastetime):
+        pass
+
+    def write_FactoryStatusData(self):
+        pass
+
+    def write_Descript2XML(self):
+        pass
+
+    def write_aggregateStatus(self, global_total, status_attributes, type_strings, updated, val_dict, status_fe):
+        pass
+
+    def write_aggregateStats(self):
+        pass
+
+    def write_writeLogSummary(self, fe_dir, val_dict_counts_desc, updated, val_dict_counts, val_dict_completed, val_dict_stats, val_dict_wastetime):
+        pass
+
+    def verify(self, fix):
+        # fix is a dictionary that may contain parameters passed from reconfig
+        # (ie. fix["fix_rrd"] = True # Then fix the RRD Files)
+        return False
+
+    # Common Methods
+    def _updateConfig(self, key, value):
+        if key in self.config:
+            self.config[key] = value
+        else:
+            raise ValueError("Attempted to Update a Key that did not exsist")
+
+    def _updateConfigAggr(self, key, value):
+        if key in self.configAggr:
+            self.configAggr[key] = value
+        else:
+            raise ValueError("Attempted to Update a Key that did not exsist")
+
+    # Static Functions
+    @staticmethod
+    def createOutList():
+        if not (Monitoring_Output.out_list):
+            from glideinwms.factory import monitorRRD
+            monitorRRD_config = {}
+            out = monitorRRD.Monitoring_Output({}, {})
+            Monitoring_Output.out_list.append(out)
+
+    @staticmethod
+    def updateConfig(key, val, element=None):
+        if element:
+            element._updateConfig(key, val)
+        else:
+            if key in Monitoring_Output.global_config:
+                Monitoring_Output.global_config[key] = val
+            for out in Monitoring_Output.out_list:
+                out._updateConfig(key, val)
+
+    @staticmethod
+    def updateConfigAggr(key, val, element=None):
+        if element:
+            element._updateConfigAggr(key, val)
+        else:
+            if key in Monitoring_Output.global_config_aggr:
+                Monitoring_Output.global_config_aggr[key] = val
+            for out in Monitoring_Output.out_list:
+                out._updateConfigAggr(key, val)
+
+    @staticmethod
+    def establish_dir(relative_dname):
+        dname = os.path.join(Monitoring_Output.global_config["monitor_dir"], relative_dname)
+        if not os.path.isdir(dname):
+            os.mkdir(dname)
+        return
+
+    @staticmethod
+    def write_file(relative_fname, output_str):
+        """
+        Writes out a string to a file
+        @param relative_fname: The relative path name to write out
+        @param output_str: the string to write to the file
+        """
+        fname = os.path.join(Monitoring_Output.global_config["monitor_dir"], relative_fname)
+        # print "Writing "+fname
+        fd = open(fname + ".tmp", "w")
+        try:
+            fd.write(output_str + "\n")
+        finally:
+            fd.close()
+
+        util.file_tmp2final(fname, mask_exceptions=(Monitoring_Output.global_config["log"].error, "Failed rename/write into %s" % fname))
+        return
+
+    @staticmethod
+    def config_log(log_dir, max_days, min_days, max_mbs):
+        Monitoring_Output.global_config["log_dir"] = log_dir
         cleaner = cleanupSupport.PrivsepDirCleanupWSpace(
                       None, log_dir, "(completed_jobs_.*\.log)",
                       int(max_days * 24 * 3600), int(min_days * 24 * 3600),
                       long(max_mbs * (1024.0 * 1024.0)))
         cleanupSupport.cleaners.add_cleaner(cleaner)
 
-    def logCompleted(self, client_name, entered_dict):
+    @staticmethod
+    def logCompleted(client_name, entered_dict):
         """
         This function takes all newly completed glideins and
         logs them in logs/entry_Name/completed_jobs_date.log in an
@@ -86,7 +182,7 @@ class MonitoringConfig:
         job_ids.sort()
 
         relative_fname = "completed_jobs_%s.log" % time.strftime("%Y%m%d", time.localtime(now))
-        fname = os.path.join(self.log_dir, relative_fname)
+        fname = os.path.join(Monitoring_Output.global_config["log_dir"], relative_fname)
         fd = open(fname, "a")
         try:
             for job_id in job_ids:
@@ -113,24 +209,8 @@ class MonitoringConfig:
         finally:
             fd.close()
 
-    def write_file(self, relative_fname, output_str):
-        """
-        Writes out a string to a file
-        @param relative_fname: The relative path name to write out
-        @param output_str: the string to write to the file
-        """
-        fname = os.path.join(self.monitor_dir, relative_fname)
-        # print "Writing "+fname
-        fd = open(fname + ".tmp", "w")
-        try:
-            fd.write(output_str + "\n")
-        finally:
-            fd.close()
-
-        util.file_tmp2final(fname, mask_exceptions=(self.log.error, "Failed rename/write into %s" % fname))
-        return
-
-    def write_completed_json(self, relative_fname, time, val_dict):
+    @staticmethod
+    def write_completed_json(relative_fname, time, val_dict):
         """
         Write val_dict to a json file, creating if needed
         relative_fname: location of json relative to self.monitor_dir
@@ -138,106 +218,23 @@ class MonitoringConfig:
         val_dict: dictionary object to be dumped to file
         """
 
-        fname = os.path.join(self.monitor_dir, relative_fname + ".json")
+        fname = os.path.join(Monitoring_Output.global_config["monitor_dir"], relative_fname + ".json")
         data = {}
         data["time"] = time
         data["stats"] = val_dict
 
         try:
                 f = None
-                self.log.info("Writing %s to %s" % (relative_fname, str(fname)))
+                Monitoring_Output.global_config["log"].info("Writing %s to %s" % (relative_fname, str(fname)))
                 f = open(fname, 'w')
                 json.dump(data, f)
                 #f.write(json.dumps(data, indent=4))
         except IOError as e:
-                self.log.err("unable to open and write to file %s in write_completed_json: %s" % (str(fname), str(e)))
+            Monitoring_Output.global_config["log"].err("unable to open and write to file %s in write_completed_json: %s" % (str(fname), str(e)))
         finally:
             if f:
                 f.close()
 
-        return
-
-    def establish_dir(self, relative_dname):
-        dname = os.path.join(self.monitor_dir, relative_dname)
-        if not os.path.isdir(dname):
-            os.mkdir(dname)
-        return
-
-    def write_rrd_multi(self, relative_fname, ds_type, time, val_dict, min_val=None, max_val=None):
-        """
-        Create a RRD file, using rrdtool.
-        """
-        if self.rrd_obj.isDummy():
-            return  # nothing to do, no rrd bin no rrd creation
-
-        # MM don't understand the need for this loop, there is only one element in the tuple, why not:
-        # rrd_ext = ".rrd"
-        # rrd_archives = self.rrd_archives
-        for tp in ((".rrd", self.rrd_archives),):
-            rrd_ext, rrd_archives = tp
-            fname = os.path.join(self.monitor_dir, relative_fname + rrd_ext)
-            # print "Writing RRD "+fname
-
-            if not os.path.isfile(fname):
-                # print "Create RRD "+fname
-                if min_val is None:
-                    min_val = 'U'
-                if max_val is None:
-                    max_val = 'U'
-                ds_names = sorted(val_dict.keys())
-
-                ds_arr = []
-                for ds_name in ds_names:
-                    ds_arr.append((ds_name, ds_type, self.rrd_heartbeat, min_val, max_val))
-                self.rrd_obj.create_rrd_multi(fname,
-                                              self.rrd_step, rrd_archives,
-                                              ds_arr)
-
-            # print "Updating RRD "+fname
-            try:
-                self.rrd_obj.update_rrd_multi(fname, time, val_dict)
-            except Exception as e:  # @UnusedVariable
-                self.log.exception("Failed to update %s: " % fname)
-        return
-
-    def write_rrd_multi_hetero(self, relative_fname, ds_desc_dict, time, val_dict):
-        """Create a RRD file, using rrdtool.
-        Like write_rrd_multi, but with each ds having each a specified type
-        each element of ds_desc_dict is a dictionary with any of ds_type, min, max
-        if ds_desc_dict[name] is not present, the defaults are {'ds_type':'GAUGE', 'min':'U', 'max':'U'}
-        """
-        if self.rrd_obj.isDummy():
-            return  # nothing to do, no rrd bin no rrd creation
-
-        # MM don't understand the need for this loop, there is only one element in the tuple, why not:
-        # rrd_ext = ".rrd"
-        # rrd_archives = self.rrd_archives
-        for tp in ((".rrd", self.rrd_archives),):
-            rrd_ext, rrd_archives = tp
-            fname = os.path.join(self.monitor_dir, relative_fname + rrd_ext)
-            # print "Writing RRD "+fname
-
-            if not os.path.isfile(fname):
-                # print "Create RRD "+fname
-                ds_names = sorted(val_dict.keys())
-
-                ds_arr = []
-                for ds_name in ds_names:
-                    ds_desc = {'ds_type': 'GAUGE', 'min': 'U', 'max': 'U'}
-                    if ds_name in ds_desc_dict:
-                        for k in ds_desc_dict[ds_name].keys():
-                            ds_desc[k] = ds_desc_dict[ds_name][k]
-
-                    ds_arr.append((ds_name, ds_desc['ds_type'], self.rrd_heartbeat, ds_desc['min'], ds_desc['max']))
-                self.rrd_obj.create_rrd_multi(fname,
-                                              self.rrd_step, rrd_archives,
-                                              ds_arr)
-
-            # print "Updating RRD "+fname
-            try:
-                self.rrd_obj.update_rrd_multi(fname, time, val_dict)
-            except Exception as e:  # @UnusedVariable
-                self.log.exception("Failed to update %s: " % fname)
         return
 
 
@@ -254,13 +251,9 @@ class MonitoringConfig:
 class condorQStats:
     def __init__(self, log=logSupport.log, cores=1):
         self.data = {}
-        self.updated = time.time()
         self.log = log
 
         self.files_updated = None
-        self.attributes = {'Status':("Idle", "Running", "Held", "Wait", "Pending", "StageIn", "IdleOther", "StageOut", "RunningCores"),
-                           'Requested':("Idle", "MaxGlideins", "IdleCores", "MaxCores"),
-                           'ClientMonitor':("InfoAge", "JobsIdle", "JobsRunning", "JobsRunHere", "GlideIdle", "GlideRunning", "GlideTotal", "CoresIdle", "CoresRunning", "CoresTotal")}
         # create a global downtime field since we want to propagate it in various places
         self.downtime = 'True'
         self.expected_cores = cores  # This comes from GLIDEIN_CPUS and GLIDEIN_ESTIMATED_CPUS, actual cores received may differ
@@ -527,11 +520,9 @@ class condorQStats:
 
     def write_file(self, monitoringConfig=None):
 
-        if monitoringConfig is None:
-            monitoringConfig = globals()['monitoringConfig']
 
         if ( (self.files_updated is not None) and
-             ((self.updated - self.files_updated) < 5) ):
+                ((self.updated - self.files_updated) < 5) ):
             # files updated recently, no need to redo it
             return
 
@@ -543,48 +534,15 @@ class condorQStats:
                    self.get_xml_data(indent_tab=xmlFormat.DEFAULT_TAB, leading_tab=xmlFormat.DEFAULT_TAB) + "\n" +
                    self.get_xml_total(indent_tab=xmlFormat.DEFAULT_TAB, leading_tab=xmlFormat.DEFAULT_TAB) + "\n" +
                    "</glideFactoryEntryQStats>\n")
-        monitoringConfig.write_file("schedd_status.xml", xml_str)
+        Monitoring_Output.write_file("schedd_status.xml", xml_str)
 
         data = self.get_data()
         total_el = self.get_total()
 
-        # update RRDs
-        type_strings = {'Status': 'Status', 'Requested': 'Req', 'ClientMonitor': 'Client'}
-        for fe in [None] + data.keys():
-            if fe is None:  # special key == Total
-                fe_dir = "total"
-                fe_el = total_el
-            else:
-                fe_dir = "frontend_" + fe
-                fe_el = data[fe]
 
-            val_dict = {}
-            # Initialize,  so that all get created properly
-            for tp in self.attributes.keys():
-                tp_str = type_strings[tp]
-                attributes_tp = self.attributes[tp]
-                for a in attributes_tp:
-                    val_dict["%s%s" % (tp_str, a)] = None
-
-            monitoringConfig.establish_dir(fe_dir)
-            for tp in fe_el.keys():
-                # type - Status, Requested or ClientMonitor
-                if not (tp in self.attributes.keys()):
-                    continue
-
-                tp_str = type_strings[tp]
-
-                attributes_tp = self.attributes[tp]
-
-                fe_el_tp = fe_el[tp]
-                for a in fe_el_tp.keys():
-                    if a in attributes_tp:
-                        a_el = fe_el_tp[a]
-                        if not isinstance(a_el, dict): # ignore subdictionaries
-                            val_dict["%s%s" % (tp_str, a)] = a_el
-
-            monitoringConfig.write_rrd_multi("%s/Status_Attributes" % fe_dir,
-                                             "GAUGE", self.updated, val_dict)
+        # Write stats
+        for out in Monitoring_Output.out_list:
+            out.write_condorQStats(data, total_el)
 
         self.files_updated = self.updated
         return
@@ -1049,9 +1007,6 @@ class condorLogSummary:
 
     def write_file(self, monitoringConfig=None):
 
-        if monitoringConfig is None:
-            monitoringConfig = globals()['monitoringConfig']
-
         if ( (self.files_updated is not None) and
              ((self.updated - self.files_updated) < 5) ):
             # files updated recently, no need to redo it
@@ -1064,9 +1019,9 @@ class condorLogSummary:
                  self.get_xml_data(indent_tab=xmlFormat.DEFAULT_TAB, leading_tab=xmlFormat.DEFAULT_TAB) + "\n" +
                  self.get_xml_total(indent_tab=xmlFormat.DEFAULT_TAB, leading_tab=xmlFormat.DEFAULT_TAB) + "\n" +
                  "</glideFactoryEntryLogSummary>\n")
-        monitoringConfig.write_file("log_summary.xml", xml_str)
+        Monitoring_Output.write_file("log_summary.xml", xml_str)
 
-        # update rrds
+
         stats_data_summary = self.get_stats_data_summary()
         diff_summary = self.get_diff_summary()
         stats_total_summary = self.get_stats_total_summary()
@@ -1080,7 +1035,7 @@ class condorLogSummary:
                 sdata = stats_data_summary[client_name]
                 sdiff = diff_summary[client_name]
 
-            monitoringConfig.establish_dir(fe_dir)
+            Monitoring_Output.establish_dir(fe_dir)
             val_dict_counts = {}
             val_dict_counts_desc = {}
             val_dict_completed = {}
@@ -1110,7 +1065,7 @@ class condorLogSummary:
                 elif s == 'Completed':
                     completed_stats = self.get_completed_stats(entered_list)
                     if client_name is not None: # do not repeat for total
-                        monitoringConfig.logCompleted(client_name, completed_stats)
+                        Monitoring_Output.logCompleted(client_name, completed_stats)
                     completed_counts = self.summarize_completed_stats(completed_stats)
 
                     # save simple vals
@@ -1145,21 +1100,12 @@ class condorLogSummary:
 
             #end for s in self.job_statuses
 
-            # write the data to disk
-            monitoringConfig.write_rrd_multi_hetero("%s/Log_Counts" % fe_dir,
-                                                    val_dict_counts_desc, self.updated, val_dict_counts)
-            monitoringConfig.write_rrd_multi("%s/Log_Completed" % fe_dir,
-                                             "ABSOLUTE", self.updated, val_dict_completed)
-            monitoringConfig.write_completed_json("%s/Log_Completed" % fe_dir, self.updated, val_dict_completed)
-            monitoringConfig.write_rrd_multi("%s/Log_Completed_Stats" % fe_dir,
-                                             "ABSOLUTE", self.updated, val_dict_stats)
-            monitoringConfig.write_completed_json("%s/Log_Completed_Stats" % fe_dir, self.updated, val_dict_stats)
-            # Disable Waste RRDs... WasteTime much more useful
-            #monitoringConfig.write_rrd_multi("%s/Log_Completed_Waste"%fe_dir,
-            #                                 "ABSOLUTE",self.updated,val_dict_waste)
-            monitoringConfig.write_rrd_multi("%s/Log_Completed_WasteTime" % fe_dir,
-                                             "ABSOLUTE", self.updated, val_dict_wastetime)
-            monitoringConfig.write_completed_json("%s/Log_Completed_WasteTime" % fe_dir, self.updated, val_dict_wastetime)
+            # Write stats
+            for out in Monitoring_Output.out_list:
+                out.write_condorLogSummary(fe_dir, val_dict_counts_desc, val_dict_counts, val_dict_completed, val_dict_stats, val_dict_wastetime)
+
+
+            Monitoring_Output.write_completed_json("%s/Log_Completed_WasteTime" % fe_dir, self.updated, val_dict_wastetime)
 
 
         self.aggregate_frontend_data(self.updated, diff_summary)
@@ -1179,9 +1125,9 @@ class condorLogSummary:
         for frontend in diff_summary.keys():
             fe_dir = "frontend_" + frontend
 
-            completed_filename = os.path.join(monitoringConfig.monitor_dir, fe_dir) + "/Log_Completed.json"
-            completed_stats_filename = os.path.join(monitoringConfig.monitor_dir, fe_dir) + "/Log_Completed_Stats.json"
-            completed_wastetime_filename = os.path.join(monitoringConfig.monitor_dir, fe_dir) + "/Log_Completed_WasteTime.json"
+            completed_filename = os.path.join(Monitoring_Output.global_config["monitor_dir"], fe_dir) + "/Log_Completed.json"
+            completed_stats_filename = os.path.join(Monitoring_Output.global_config["monitor_dir"], fe_dir) + "/Log_Completed_Stats.json"
+            completed_wastetime_filename = os.path.join(Monitoring_Output.global_config["monitor_dir"], fe_dir) + "/Log_Completed_WasteTime.json"
 
             try:
                 completed_fp = open(completed_filename)
@@ -1204,7 +1150,7 @@ class condorLogSummary:
                 completed_stats_fp.close()
                 completed_wastetime_fp.close()
 
-        monitoringConfig.write_completed_json("completed_data", updated, entry_data)
+        Monitoring_Output.write_completed_json("completed_data", updated, entry_data)
 
     def write_job_info(self, scheddName, collectorName):
         """ The method itereates over the stats_diff dictionary looking for
@@ -1248,7 +1194,7 @@ class condorLogSummary:
                             }
 
         #cannot use monitorAggregatorConfig.jobsummary_relname, looks like a circular import
-        monitoringConfig.write_file("job_summary.pkl", pickle.dumps(jobinfo))
+        Monitoring_Output.write_file("job_summary.pkl", pickle.dumps(jobinfo))
 
 
 
@@ -1265,7 +1211,7 @@ class FactoryStatusData:
     """this class handles the data obtained from the rrd files"""
     def __init__(self, log=logSupport.log, base_dir=None):
         self.data = {}
-        for rrd in rrd_list:
+        for rrd in Monitoring_Output.global_config["rrd_list"]:
             self.data[rrd] = {}
         # KEL why are we setting time here and not just getting the current time (like in Descript2XML)
         self.updated = time.time()
@@ -1274,7 +1220,7 @@ class FactoryStatusData:
         self.total = "total/"
         self.frontends = []
         if base_dir is None:
-            self.base_dir = monitoringConfig.monitor_dir
+            self.base_dir = Monitoring_Output.global_config["monitor_dir"]
         self.log = log
 
     def getUpdated(self):
@@ -1340,9 +1286,6 @@ class FactoryStatusData:
     def getData(self, input_val, monitoringConfig=None):
         """returns the data fetched by rrdtool in a xml readable format"""
 
-        if monitoringConfig is None:
-            monitoringConfig = globals()['monitoringConfig']
-
         folder = str(input_val)
         if folder == self.total:
             client = folder
@@ -1352,17 +1295,17 @@ class FactoryStatusData:
             if client not in self.frontends:
                 self.frontends.append(client)
 
-        for rrd in rrd_list:
+        for rrd in Monitoring_Output.global_config["rrd_list"]:
             self.data[rrd][client] = {}
             for res_raw in self.resolution:
                 # calculate the best resolution
                 res_idx = 0
-                rrd_res = monitoringConfig.rrd_archives[res_idx][2] * monitoringConfig.rrd_step
+                rrd_res = Monitoring_Output.global_config["rrd_archives"][res_idx][2] * Monitoring_Output.global_config["rrd_step"]
                 period_mul = int(res_raw / rrd_res)
-                while (period_mul >= monitoringConfig.rrd_archives[res_idx][3]):
+                while (period_mul >= Monitoring_Output.global_config["rrd_archives"][res_idx][3]):
                     # not all elements in the higher bucket, get next lower resolution
                     res_idx += 1
-                    rrd_res = monitoringConfig.rrd_archives[res_idx][2] * monitoringConfig.rrd_step
+                    rrd_res = Monitoring_Output.global_config["rrd_archives"][res_idx][2] * Monitoring_Output.global_config["rrd_step"]
                     period_mul = int(res_raw / rrd_res)
 
                 period = period_mul * rrd_res
@@ -1414,10 +1357,11 @@ class FactoryStatusData:
 
     def writeFiles(self,  monitoringConfig=None):
 
-        if monitoringConfig is None:
-            monitoringConfig = globals()['monitoringConfig']
+        # Write data
+        for out in Monitoring_Output.out_list:
+            out.write_FactoryStatusData()
 
-        for rrd in rrd_list:
+        for rrd in Monitoring_Output.global_config["rrd_list"]:
             file_name = 'rrd_' + rrd.split(".")[0] + '.xml'
             xml_str = ('<?xml version="1.0" encoding="ISO-8859-1"?>\n\n' +
                        '<glideFactoryEntryRRDStats>\n' +
@@ -1425,9 +1369,10 @@ class FactoryStatusData:
                        self.getXMLData(rrd) +
                        '</glideFactoryEntryRRDStats>')
             try:
-                monitoringConfig.write_file(file_name, xml_str)
+                Monitoring_Output.write_file(file_name, xml_str)
             except IOError:
-                self.log.exception("FactoryStatusData:write_file: ")
+                Monitoring_Output.global_config["log"].exception("FactoryStatusData:write_file: ")
+
         return
 
 ##############################################################################
@@ -1511,6 +1456,10 @@ class Descript2XML:
         return xmlFormat.time2xml(time.time(), "updated", indent_tab=self.tab, leading_tab=self.tab)
 
     def writeFile(self, path, xml_str, singleEntry=False):
+        # Write Data
+        for out in Monitoring_Output.out_list:
+            out.write_Descript2XML()
+
         if singleEntry:
             root_el = 'glideFactoryEntryDescript'
         else:
@@ -1638,5 +1587,4 @@ def get_completed_stats_xml_desc():
 
 ##################################################
 
-# global configuration of the module
-monitoringConfig = MonitoringConfig()
+Monitoring_Output.createOutList()
